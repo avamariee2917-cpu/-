@@ -44,13 +44,38 @@ export default {
       }
 
       if (message.author?.bot) return;
+let moderator = 'Unknown';
 
+try {
+  const auditLogs = await message.guild.fetchAuditLogs({
+    limit: 1,
+    type: 72 
+  });
+
+  const deleteLog = auditLogs.entries.first();
+
+  if (deleteLog) {
+    const executor = deleteLog.executor;
+
+    
+    if (
+      executor &&
+      deleteLog.target?.id === message.author?.id &&
+      Date.now() - deleteLog.createdTimestamp < 5000
+    ) {
+      moderator = `${executor.tag} (${executor.id})`;
+    }
+  }
+} catch (error) {
+  logger.warn('Could not find message delete moderator:', error);
+}
       const metaLines = [
-        formatLogLine('Channel', message.channel ? `${message.channel.name} ${message.channel.toString()}` : 'Unknown'),
-        formatLogLine('Message ID', `\`${message.id}\``),
-        formatLogLine('Message author', message.author ? message.author.toString() : 'Unknown'),
-        formatLogLine('Message created', `<t:${Math.floor(message.createdTimestamp / 1000)}:R>`),
-      ];
+  formatLogLine('Channel', message.channel ? `${message.channel.name} ${message.channel.toString()}` : 'Unknown'),
+  formatLogLine('Message ID', `\`${message.id}\``),
+  formatLogLine('Message author', message.author ? message.author.toString() : 'Unknown'),
+  formatLogLine('Deleted by', moderator),
+  formatLogLine('Message created', `<t:${Math.floor(message.createdTimestamp / 1000)}:R>`),
+];
 
       let messageBody = null;
       if (message.content) {
