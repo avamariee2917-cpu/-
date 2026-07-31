@@ -247,7 +247,21 @@ const caseId = await logModerationAction({
         );
       }
 
-      await member.kick(reason);
+      try {
+  await member.send({
+    content:
+      `👢 You have been kicked from **${guild.name}**.\n\n` +
+      `**Moderator:** ${moderator.user.tag}\n` +
+      `**Reason:** ${reason}`
+  });
+} catch (error) {
+  logger.warn(`Could not DM kicked user`, {
+    userId: member.id,
+    error: error.message
+  });
+}
+
+await member.kick(reason);
 
       const caseId = await logModerationAction({
         client: guild.client,
@@ -305,7 +319,22 @@ const caseId = await logModerationAction({
         );
       }
 
-      await member.timeout(durationMs, reason);
+      try {
+  await member.send({
+    content:
+      `⏳ You have been timed out in **${guild.name}**.\n\n` +
+      `**Duration:** ${Math.floor(durationMs / 60000)} minutes\n` +
+      `**Moderator:** ${moderator.user.tag}\n` +
+      `**Reason:** ${reason}`
+  });
+} catch (error) {
+  logger.warn(`Could not DM timed out user`, {
+    userId: member.id,
+    error: error.message
+  });
+}
+
+await member.timeout(durationMs, reason);
 
       const durationMinutes = Math.floor(durationMs / 60000);
       const caseId = await logModerationAction({
@@ -374,7 +403,21 @@ const caseId = await logModerationAction({
         );
       }
 
-      await member.timeout(null, reason);
+      try {
+  await member.send({
+    content:
+      `Your timeout has been removed in **${guild.name}**.\n\n` +
+      `**Moderator:** ${moderator.user.tag}\n` +
+      `**Reason:** ${reason}`
+  });
+} catch (error) {
+  logger.warn(`Could not DM user after timeout removal`, {
+    userId: member.id,
+    error: error.message
+  });
+}
+
+await member.timeout(null, reason);
 
       await logModerationAction({
         client: guild.client,
@@ -428,7 +471,21 @@ const caseId = await logModerationAction({
         );
       }
 
-      await guild.members.unban(user.id, reason);
+      try {
+  await user.send({
+    content:
+      `✅ You have been unbanned from **${guild.name}**.\n\n` +
+      `**Moderator:** ${moderator.user.tag}\n` +
+      `**Reason:** ${reason}`
+  });
+} catch (error) {
+  logger.warn(`Could not DM unbanned user`, {
+    userId: user.id,
+    error: error.message
+  });
+}
+
+await guild.members.unban(user.id, reason);
 
       const caseId = await logModerationAction({
         client: guild.client,
