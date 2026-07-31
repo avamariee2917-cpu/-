@@ -56,10 +56,13 @@ try {
   const deleteLog = auditLogs.entries.first();
 
   if (
-    deleteLog &&
-    deleteLog.executor &&
-    Date.now() - deleteLog.createdTimestamp < 5000
-  ) {
+  deleteLog &&
+  deleteLog.executor &&
+  deleteLog.extra?.channel?.id === message.channel.id &&
+  Date.now() - deleteLog.createdTimestamp < 5000
+) {
+  deletedBy = `${deleteLog.executor.tag} (${deleteLog.executor.id})`;
+} {
     deletedBy = `${deleteLog.executor.tag} (${deleteLog.executor.id})`;
   }
 } catch (error) {
