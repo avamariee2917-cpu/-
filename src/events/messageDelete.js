@@ -62,9 +62,7 @@ try {
   Date.now() - deleteLog.createdTimestamp < 5000
 ) {
   deletedBy = `${deleteLog.executor.tag} (${deleteLog.executor.id})`;
-} {
-    deletedBy = `${deleteLog.executor.tag} (${deleteLog.executor.id})`;
-  }
+}
 } catch (error) {
   logger.warn('Could not find who deleted the message:', error);
 }
