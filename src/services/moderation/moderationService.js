@@ -178,7 +178,7 @@ export class ModerationService {
 try {
   await user.send({
     content:
-      `🚫 You have been banned from **${guild.name}**.\n\n` +
+      `You have been banned from **${guild.name}**.\n\n` +
       `**Reason:** ${reason}`
   });
 } catch (error) {
