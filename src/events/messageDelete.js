@@ -44,6 +44,7 @@ export default {
       }
 
       if (message.author?.bot) return;
+
 let deletedBy = 'Unknown';
 
 try {
