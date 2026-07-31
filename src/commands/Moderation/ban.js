@@ -18,47 +18,33 @@ export default {
             option.setName("reason").setDescription("Reason for the ban"),
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+
     category: "moderation",
 
     async execute(interaction, config, client) {
-        const user = interaction.options.getUser("target");
-        const reason = interaction.options.getString("reason") || "No reason provided";
+        // your current slash code
+    },
+
+    prefixExecute: async (message, args, client) => {
+        const user = message.mentions.users.first();
 
         if (!user) {
-            throw new TitanBotError(
-                'Missing target user',
-                ErrorTypes.USER_INPUT,
-                'You must specify a user to ban.',
-                { subtype: 'invalid_user' },
-            );
+            return message.reply("Please mention a user to ban.");
         }
 
-        if (user.id === interaction.user.id) {
-            throw new TitanBotError(
-                'Cannot ban self',
-                ErrorTypes.VALIDATION,
-                'You cannot ban yourself.',
-            );
-        }
-        if (user.id === client.user.id) {
-            throw new TitanBotError(
-                'Cannot ban bot',
-                ErrorTypes.VALIDATION,
-                'You cannot ban the bot.',
-            );
-        }
+        const reason = args.slice(1).join(" ") || "No reason provided";
 
         const result = await ModerationService.banUser({
-            guild: interaction.guild,
+            guild: message.guild,
             user,
-            moderator: interaction.member,
+            moderator: message.member,
             reason,
         });
 
-        await InteractionHelper.universalReply(interaction, {
+        await message.reply({
             embeds: [
                 successEmbed(
-                    `🚫 **Banned** ${user.tag}`,
+                    `**Banned** ${user.tag}`,
                     `**Reason:** ${reason}\n**Case ID:** #${result.caseId}`,
                 ),
             ],
