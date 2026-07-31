@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, PermissionsBitField, ChannelType, MessageFlags } from 'discord.js';
 import { createEmbed, successEmbed } from '../../utils/embeds.js';
-import { logEvent } from '../../utils/moderation.js';
+import { logModerationAction } from '../../utils/moderation.js';
 import { logger } from '../../utils/logger.js';
 import { getColor } from '../../config/bot.js';
 
@@ -44,22 +44,22 @@ export default {
       const deleted = await channel.bulkDelete(fetched, true);
       const deletedCount = deleted.size;
 
-      await logEvent({
-        client,
-        guild: interaction.guild,
-        event: {
-          action: "Messages Purged",
-          target: `${channel} (${deletedCount} messages)`,
-          executor: `${interaction.user.tag} (${interaction.user.id})`,
-          reason: `Deleted ${deletedCount} messages`,
-          metadata: {
-            channelId: channel.id,
-            messageCount: deletedCount,
-            requestedAmount: amount,
-            moderatorId: interaction.user.id
-          }
-        }
-      });
+      await logModerationAction({
+  client,
+  guild: interaction.guild,
+  event: {
+    action: "Messages Purged",
+    target: `${channel} (${deletedCount} messages)`,
+    executor: `${interaction.user.tag} (${interaction.user.id})`,
+    reason: `Deleted ${deletedCount} messages`,
+    metadata: {
+      channelId: channel.id,
+      messageCount: deletedCount,
+      requestedAmount: amount,
+      moderatorId: interaction.user.id
+    }
+  }
+});
 
       await InteractionHelper.safeEditReply(interaction, {
         embeds: [
