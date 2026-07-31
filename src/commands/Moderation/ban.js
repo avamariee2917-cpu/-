@@ -43,38 +43,84 @@ export default {
 
     category: "moderation",
 
-    async execute(interaction, config, client) {
+        async execute(interaction, config, client) {
 
-    const input = interaction.options.getString("user");
+        const input = interaction.options.getString("user");
 
-    const user = await resolveUser(input, client);
+        const user = await resolveUser(input, client);
 
-    if (!user) {
-        return interaction.reply({
-            content: "I could not find that user.",
-            ephemeral: true
+        if (!user) {
+            return interaction.reply({
+                content: "I could not find that user.",
+                ephemeral: true
+            });
+        }
+
+        const reason =
+            interaction.options.getString("reason") ||
+            "No reason provided";
+
+
+        const result = await ModerationService.banUser({
+            guild: interaction.guild,
+            user,
+            moderator: interaction.member,
+            reason,
         });
-    }
-
-    const reason =
-        interaction.options.getString("reason") ||
-        "No reason provided";
 
 
-    const result = await ModerationService.banUser({
-        guild: interaction.guild,
-        user,
-        moderator: interaction.member,
-        reason,
-    });
+        await InteractionHelper.universalReply(interaction, {
+            embeds: [
+                successEmbed(
+                    `**Banned** ${user.tag}`,
+                    `**Reason:** ${reason}\n**Case ID:** #${result.caseId}`,
+                ),
+            ],
+        });
+    },
 
 
-    await InteractionHelper.universalReply(interaction, {
-        embeds: [
-            successEmbed(
-                `**Banned** ${user.tag}`,
-                `**Reason:** ${reason}\n**Case ID:** #${result.caseId}`,
-            ),
-        ],
-    });
-},
+    prefixExecute: async (message, args, client) => {
+
+        const input = args[0];
+
+        if (!input) {
+            return message.reply(
+                "Please provide a user mention or ID."
+            );
+        }
+
+
+        const user = await resolveUser(input, client);
+
+
+        if (!user) {
+            return message.reply(
+                "I could not find that user."
+            );
+        }
+
+
+        const reason =
+            args.slice(1).join(" ") ||
+            "No reason provided";
+
+
+        const result = await ModerationService.banUser({
+            guild: message.guild,
+            user,
+            moderator: message.member,
+            reason,
+        });
+
+
+        await message.reply({
+            embeds: [
+                successEmbed(
+                    `**Banned** ${user.tag}`,
+                    `**Reason:** ${reason}\n**Case ID:** #${result.caseId}`,
+                ),
+            ],
+        });
+    },
+};
