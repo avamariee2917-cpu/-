@@ -4,16 +4,38 @@ import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { ModerationService } from '../../services/moderation/moderationService.js';
 import { TitanBotError, ErrorTypes } from '../../utils/errorHandler.js';
 
+async function resolveUser(input, client) {
+    // If someone uses @User
+    const mentionMatch = input.match(/^<@!?(\d+)>$/);
+
+    if (mentionMatch) {
+        return await client.users.fetch(mentionMatch[1]).catch(() => null);
+    }
+
+    // If someone uses an ID
+    if (/^\d{17,20}$/.test(input)) {
+        return await client.users.fetch(input).catch(() => null);
+    }
+
+    // If someone uses a username
+    const found = client.users.cache.find(
+        user => user.username.toLowerCase() === input.toLowerCase()
+    );
+
+    return found || null;
+}
+
 export default {
     data: new SlashCommandBuilder()
         .setName("ban")
         .setDescription("Ban a user from the server")
-        .addUserOption((option) =>
-            option
-                .setName("target")
-                .setDescription("The user to ban")
-                .setRequired(true),
-        )
+        .addStringOption((option) =>
+    option
+        .setName("user")
+        .setDescription("User mention, ID, or username")
+        .setRequired(true),
+)
+        
         .addStringOption((option) =>
             option.setName("reason").setDescription("Reason for the ban"),
         )
@@ -22,32 +44,37 @@ export default {
     category: "moderation",
 
     async execute(interaction, config, client) {
-        // your current slash code
-    },
 
-    prefixExecute: async (message, args, client) => {
-        const user = message.mentions.users.first();
+    const input = interaction.options.getString("user");
 
-        if (!user) {
-            return message.reply("Please mention a user to ban.");
-        }
+    const user = await resolveUser(input, client);
 
-        const reason = args.slice(1).join(" ") || "No reason provided";
-
-        const result = await ModerationService.banUser({
-            guild: message.guild,
-            user,
-            moderator: message.member,
-            reason,
+    if (!user) {
+        return interaction.reply({
+            content: "I could not find that user.",
+            ephemeral: true
         });
+    }
 
-        await message.reply({
-            embeds: [
-                successEmbed(
-                    `**Banned** ${user.tag}`,
-                    `**Reason:** ${reason}\n**Case ID:** #${result.caseId}`,
-                ),
-            ],
-        });
-    },
-};
+    const reason =
+        interaction.options.getString("reason") ||
+        "No reason provided";
+
+
+    const result = await ModerationService.banUser({
+        guild: interaction.guild,
+        user,
+        moderator: interaction.member,
+        reason,
+    });
+
+
+    await InteractionHelper.universalReply(interaction, {
+        embeds: [
+            successEmbed(
+                `**Banned** ${user.tag}`,
+                `**Reason:** ${reason}\n**Case ID:** #${result.caseId}`,
+            ),
+        ],
+    });
+},
