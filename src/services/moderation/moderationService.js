@@ -173,25 +173,39 @@ export class ModerationService {
             );
         }
       }
+}
 
-      await guild.members.ban(user.id, { reason });
+try {
+  await user.send({
+    content:
+      `🚫 You have been banned from **${guild.name}**.\n\n` +
+      `**Reason:** ${reason}`
+  });
+} catch (error) {
+  logger.warn(`Could not DM banned user`, {
+    userId: user.id,
+    error: error.message
+  });
+}
 
-      const caseId = await logModerationAction({
-        client: guild.client,
-        guild,
-        event: {
-          action: 'Member Banned',
-          target: `${user.tag} (${user.id})`,
-          executor: `${moderator.user.tag} (${moderator.id})`,
-          reason,
-          metadata: {
-            userId: user.id,
-            moderatorId: moderator.id,
-            permanent: true,
-            deleteDays
-          }
-        }
-      });
+await guild.members.ban(user.id, { reason });
+
+const caseId = await logModerationAction({
+  client: guild.client,
+  guild,
+  event: {
+    action: 'Member Banned',
+    target: `${user.tag} (${user.id})`,
+    executor: `${moderator.user.tag} (${moderator.id})`,
+    reason,
+    metadata: {
+      userId: user.id,
+      moderatorId: moderator.id,
+      permanent: true,
+      deleteDays
+    }
+  }
+});
 
       logger.info(`User banned: ${user.tag} by ${moderator.user.tag} in ${guild.name}`);
       
