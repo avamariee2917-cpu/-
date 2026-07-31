@@ -31,15 +31,22 @@ function buildModerationLogData(event) {
   const executorTag = event.executor?.split(' (')[0] || 'Moderator';
 
   const lines = [];
+
   if (event.target) {
     lines.push(formatLogLine('User', event.target));
   }
+
+  if (event.executor) {
+    lines.push(formatLogLine('Moderator', event.executor));
+  }
+
   if (event.reason) {
     const reason = event.reason.length > 900
       ? `${event.reason.substring(0, 897)}...`
       : event.reason;
     lines.push(formatLogLine('Reason', reason));
   }
+  
   if (event.duration) {
     lines.push(formatLogLine('Duration', event.duration));
   }
