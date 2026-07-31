@@ -58,7 +58,7 @@ try {
   if (
   deleteLog &&
   deleteLog.executor &&
-  deleteLog.extra?.channel?.id === message.channel.id &&
+  deleteLog.target?.id === message.author?.id &&
   Date.now() - deleteLog.createdTimestamp < 5000
 ) {
   deletedBy = `${deleteLog.executor.tag} (${deleteLog.executor.id})`;
