@@ -77,7 +77,21 @@ export default {
             reason,
             timestamp: Date.now()
         });
-
+try {
+    await target.send({
+        embeds: [
+            warningEmbed(
+                "⚠️ You received a warning",
+                `You have been warned in **${interaction.guild.name}**.\n\n**Reason:** ${reason}\n**Total Warnings:** ${totalCount}`
+            )
+        ]
+    });
+} catch (error) {
+    logger.warn(`Could not DM warned user`, {
+        userId: target.id,
+        error: error.message
+    });
+}
         await logModerationAction({
             client,
             guild: interaction.guild,
