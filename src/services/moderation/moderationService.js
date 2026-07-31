@@ -155,38 +155,37 @@ export class ModerationService {
         logger.debug('Target not in guild, proceeding with ban');
       }
 
-      if (targetMember) {
+            if (targetMember) {
         this.assertModerationHierarchy(moderator, targetMember, 'ban');
       } else {
-
         const isOwner = guild.ownerId === moderator.id;
         const hasHighPerms = moderator.permissions.has([
-            PermissionFlagsBits.ManageGuild,
-            PermissionFlagsBits.Administrator
+          PermissionFlagsBits.ManageGuild,
+          PermissionFlagsBits.Administrator
         ]);
 
         if (!isOwner && !hasHighPerms) {
-            throw new TitanBotError(
-                'You do not have sufficient permissions to ban users who are not in the server.',
-                ErrorTypes.PERMISSION,
-                'You need "Manage Server" or "Administrator" permissions to ban users not currently in the guild.'
-            );
+          throw new TitanBotError(
+            'You do not have sufficient permissions to ban users who are not in the server.',
+            ErrorTypes.PERMISSION,
+            'You need "Manage Server" or "Administrator" permissions to ban users not currently in the guild.'
+          );
         }
-      }
-   
+      }  
 
-try {
-  await user.send({
-    content:
-      `You have been banned from **${guild.name}**.\n\n` +
-      `**Reason:** ${reason}`
-  });
-} catch (error) {
-  logger.warn(`Could not DM banned user`, {
-    userId: user.id,
-    error: error.message
-  });
-}
+       
+      try {
+        await user.send({
+          content:
+            `You have been banned from **${guild.name}**.\n\n` +
+            `**Reason:** ${reason}`
+        });
+      } catch (error) {
+        logger.warn(`Could not DM banned user`, {
+          userId: user.id,
+          error: error.message
+        });
+      }
 
 await guild.members.ban(user.id, { reason });
 
