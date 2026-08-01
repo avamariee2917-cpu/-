@@ -82,6 +82,8 @@ export default {
 
     prefixExecute: async (message, args, client) => {
 
+    console.log("PREFIX BAN COMMAND WORKED", args);
+
         const input = args[0];
 
         if (!input) {
