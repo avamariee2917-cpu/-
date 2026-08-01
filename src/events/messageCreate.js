@@ -144,7 +144,7 @@ async function handlePrefixCommand(message, client) {
   }
 }
 
-async function handleCountingGame(message, client) {
+// await handleLeveling(message, client); 
   try {
     const config = await getCountingGameConfig(client, message.guild.id);
     if (!config.enabled || !config.channelId || message.channel.id !== config.channelId) {
