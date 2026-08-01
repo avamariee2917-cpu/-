@@ -209,8 +209,8 @@ export async function executePrefixCommand(command, message, args, client, prefi
     }
 
     if (command.prefixExecute) {
-      await command.prefixExecute(mockInteraction, guildConfig, client);
-    } else {
+  await command.prefixExecute(message, args, client);
+} else {
       await command.execute(mockInteraction, guildConfig, client);
     }
   } catch (error) {
