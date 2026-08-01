@@ -59,7 +59,10 @@ export default {
         const reason =
             interaction.options.getString("reason") ||
             "No reason provided";
-
+            
+console.log("INPUT:", input);
+console.log("USER:", user);
+console.log("USER ID:", user?.id);
 
         const result = await ModerationService.banUser({
             guild: interaction.guild,
