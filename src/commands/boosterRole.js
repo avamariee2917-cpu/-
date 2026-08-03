@@ -1,166 +1,226 @@
 import { SlashCommandBuilder } from "discord.js";
-import { getBoosterRole, setBoosterRole } from "../../services/boosterRoleService.js";
-
+import fs from "fs";
+import path from "path";
 
 const BOOSTER_ROLE_1 = "1532269323584802836";
 const BOOSTER_ROLE_2 = "1533675708193177700";
 
+const storagePath = path.join(
+    process.cwd(),
+    "data",
+    "boosterRoles.json"
+);
+
+
+function getStoredRoles() {
+
+    if (!fs.existsSync(storagePath)) {
+
+        fs.mkdirSync(
+            path.dirname(storagePath),
+            { recursive: true }
+        );
+
+        fs.writeFileSync(
+            storagePath,
+            "{}"
+        );
+
+    }
+
+
+    return JSON.parse(
+        fs.readFileSync(storagePath, "utf8")
+    );
+
+}
+
+
+
+function saveStoredRoles(data) {
+
+    fs.writeFileSync(
+        storagePath,
+        JSON.stringify(data, null, 4)
+    );
+
+}
+
+
 
 export default {
 
-data: new SlashCommandBuilder()
+    data: new SlashCommandBuilder()
 
-.setName("br")
-.setDescription("Customize your booster role")
+        .setName("br")
 
-.addStringOption(option =>
-option
-.setName("name")
-.setDescription("Change your role name")
-)
+        .setDescription(
+            "Customize your booster role"
+        )
 
-.addStringOption(option =>
-option
-.setName("color")
-.setDescription("Change role color (#527357)")
-),
+        .addStringOption(option =>
+            option
+                .setName("name")
+                .setDescription(
+                    "Set your role name"
+                )
+                .setRequired(false)
+        )
 
+        .addStringOption(option =>
+            option
+                .setName("color")
+                .setDescription(
+                    "Set your role color (#527357)"
+                )
+                .setRequired(false)
+        ),
 
-category: "Community",
 
+    category: "Community",
 
 
-async execute(interaction) {
 
+    async execute(interaction) {
 
-const member = interaction.member;
 
+        const member = interaction.member;
 
-const booster =
-member.roles.cache.has(BOOSTER_ROLE_1) ||
-member.roles.cache.has(BOOSTER_ROLE_2);
 
 
+        const hasBooster =
+            member.roles.cache.has(BOOSTER_ROLE_1) ||
+            member.roles.cache.has(BOOSTER_ROLE_2);
 
-if (!booster) {
 
-return interaction.reply({
 
-content:
-"You must be a booster to use this command.",
+        if (!hasBooster) {
 
-ephemeral:true
+            return interaction.reply({
 
-});
+                content:
+                    "You must be a booster to use this command.",
 
-}
+                ephemeral: true
 
+            });
 
+        }
 
-let roleId = getBoosterRole(member.id);
 
 
-let boosterRole = null;
+        const roles = getStoredRoles();
 
 
 
-if(roleId){
+        let boosterRole = null;
 
-boosterRole =
-interaction.guild.roles.cache.get(roleId);
 
-}
 
+        if (roles[member.id]) {
 
+            boosterRole =
+                interaction.guild.roles.cache.get(
+                    roles[member.id]
+                );
 
+        }
 
-if(!boosterRole){
 
 
-boosterRole =
-await interaction.guild.roles.create({
+        if (!boosterRole) {
 
-name:
-`✦ ${member.user.username}`,
 
-color:"#000000",
+            boosterRole =
+                await interaction.guild.roles.create({
 
-reason:"Booster custom role"
+                    name:
+                        `✦ ${member.user.username}`,
 
-});
+                    color:
+                        "#000000",
 
+                    reason:
+                        "Booster custom role"
 
-await member.roles.add(boosterRole);
+                });
 
 
-setBoosterRole(
-member.id,
-boosterRole.id
-);
 
-}
+            await member.roles.add(
+                boosterRole
+            );
 
 
+            roles[member.id] =
+                boosterRole.id;
 
 
-const name =
-interaction.options.getString("name");
+            saveStoredRoles(
+                roles
+            );
 
+        }
 
-const color =
-interaction.options.getString("color");
 
 
+        const newName =
+            interaction.options.getString("name");
 
 
-if(name){
+        const newColor =
+            interaction.options.getString("color");
 
-await boosterRole.setName(
-`✦ ${name}`
-);
 
-}
 
+        if (newName) {
 
+            await boosterRole.setName(
+                `✦ ${newName}`
+            );
 
-if(color){
+        }
 
 
-if(!/^#[0-9A-F]{6}$/i.test(color)){
 
+        if (newColor) {
 
-return interaction.reply({
 
-content:
-"Invalid color. Example: #527357",
+            if (
+                !/^#[0-9A-F]{6}$/i.test(newColor)
+            ) {
 
-ephemeral:true
+                return interaction.reply({
 
-});
+                    content:
+                        "Invalid color format. Example: #527357",
 
+                    ephemeral: true
 
-}
+                });
 
+            }
 
 
-await boosterRole.setColor(color);
 
+            await boosterRole.setColor(
+                newColor
+            );
 
-}
+        }
 
 
 
+        return interaction.reply({
 
-await interaction.reply({
+            content:
+                `Your booster role has been updated: ${boosterRole}`,
 
-content:
-`Your booster role has been updated: ${boosterRole}`,
+            ephemeral: true
 
-ephemeral:true
+        });
 
-});
 
-
-}
+    }
 
 };
