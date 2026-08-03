@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 
-const BOOSTER_ROLE_1 = "1532269323584802836"; // Boosted once
-const BOOSTER_ROLE_2 = "1533675708193177700"; // Boosted twice
+const BOOSTER_ROLE_1 = "1532269323584802836";
+const BOOSTER_ROLE_2 = "1533675708193177700";
 
 export default {
     data: new SlashCommandBuilder()
@@ -11,25 +11,26 @@ export default {
         .addStringOption(option =>
             option
                 .setName("name")
-                .setDescription("Rename your booster role")
+                .setDescription("Change your role name")
                 .setRequired(false)
         )
 
         .addStringOption(option =>
             option
                 .setName("color")
-                .setDescription("Change role color (example: #527357)")
+                .setDescription("Change role color (#527357)")
                 .setRequired(false)
         ),
 
+
     category: "Community",
+
 
     async execute(interaction) {
 
         const member = interaction.member;
 
 
-        // Check booster roles
         const isBooster =
             member.roles.cache.has(BOOSTER_ROLE_1) ||
             member.roles.cache.has(BOOSTER_ROLE_2);
@@ -37,30 +38,32 @@ export default {
 
         if (!isBooster) {
             return interaction.reply({
-                content: "You must be a server booster to use this command.",
+                content: "You must be a booster to use this command.",
                 ephemeral: true
             });
         }
 
 
-        // Find existing booster role
+        // Find existing booster role by USER ID
         let boosterRole = interaction.guild.roles.cache.find(
-            role => role.name === `✦ ${member.user.username}'s Role`
+            role => role.name.endsWith(`| ${member.id}`)
         );
 
 
-        // Create role if they don't have one
+        // Create only if they don't already have one
         if (!boosterRole) {
 
             boosterRole = await interaction.guild.roles.create({
-                name: `✦ ${member.user.username}'s Role`,
+                name: `✦ ${member.user.username} | ${member.id}`,
                 color: "#000000",
                 reason: "Booster custom role"
             });
 
 
             await member.roles.add(boosterRole);
+
         }
+
 
 
         const newName =
@@ -70,24 +73,24 @@ export default {
             interaction.options.getString("color");
 
 
-        // Change name
+
         if (newName) {
 
             await boosterRole.setName(
-                `✦ ${newName}`
+                `✦ ${newName} | ${member.id}`
             );
 
         }
 
 
-        // Change color
+
         if (newColor) {
 
             if (!/^#[0-9A-F]{6}$/i.test(newColor)) {
 
                 return interaction.reply({
                     content:
-                    "Invalid color format. Use something like: #527357",
+                    "Invalid color. Use format like #527357",
                     ephemeral: true
                 });
 
@@ -95,6 +98,7 @@ export default {
 
 
             await boosterRole.setColor(newColor);
+
         }
 
 
