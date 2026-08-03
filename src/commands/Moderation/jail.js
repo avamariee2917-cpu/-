@@ -119,7 +119,7 @@ option
 
 .setName("user")
 
-.setDescription("Mention, ID, or username")
+.setDescription("ID, or username")
 
 .setRequired(true)
 
