@@ -13,22 +13,25 @@ const LOG_CHANNEL_ID = "1533730276965089390";
 
 
 const filePath = path.join(
-process.cwd(),
-"data",
-"jailedUsers.json"
+    process.cwd(),
+    "data",
+    "jailedUsers.json"
 );
 
 
 
 function getData(){
 
-if(!fs.existsSync(filePath)){
-return {};
-}
+    if(!fs.existsSync(filePath)){
 
-return JSON.parse(
-fs.readFileSync(filePath,"utf8")
-);
+        return {};
+
+    }
+
+
+    return JSON.parse(
+        fs.readFileSync(filePath,"utf8")
+    );
 
 }
 
@@ -36,10 +39,10 @@ fs.readFileSync(filePath,"utf8")
 
 function saveData(data){
 
-fs.writeFileSync(
-filePath,
-JSON.stringify(data,null,4)
-);
+    fs.writeFileSync(
+        filePath,
+        JSON.stringify(data,null,4)
+    );
 
 }
 
@@ -47,54 +50,55 @@ JSON.stringify(data,null,4)
 
 async function findUser(input, interaction){
 
-const guild = interaction.guild;
+    const guild = interaction.guild;
 
 
-const mention =
-input.match(/^<@!?(\d+)>$/);
+    const mention =
+    input.match(/^<@!?(\d+)>$/);
 
 
 
-if(mention){
+    if(mention){
 
-return await guild.members.fetch(
-mention[1]
-).catch(()=>null);
+        return await guild.members.fetch(
+            mention[1]
+        ).catch(()=>null);
+
+    }
+
+
+
+    if(/^\d+$/.test(input)){
+
+        return await guild.members.fetch(
+            input
+        ).catch(()=>null);
+
+    }
+
+
+
+    await guild.members.fetch()
+    .catch(()=>{});
+
+
+
+    return guild.members.cache.find(
+
+        member =>
+
+        member.user.username.toLowerCase()
+        === input.toLowerCase()
+
+        ||
+
+        member.displayName.toLowerCase()
+        === input.toLowerCase()
+
+    );
 
 }
 
-
-
-if(/^\d+$/.test(input)){
-
-return await guild.members.fetch(
-input
-).catch(()=>null);
-
-}
-
-
-
-await guild.members.fetch();
-
-
-
-return guild.members.cache.find(
-
-m =>
-m.user.username.toLowerCase()
-===
-input.toLowerCase()
-||
-m.displayName.toLowerCase()
-===
-input.toLowerCase()
-
-);
-
-
-
-}
 
 
 
@@ -108,34 +112,34 @@ new SlashCommandBuilder()
 
 .setName("unjail")
 
-.setDescription("Unjail a member")
+.setDescription("Remove a member from jail")
 
-.addStringOption(option=>
+.addStringOption(option =>
 
-option
+    option
 
-.setName("user")
+    .setName("user")
 
-.setDescription("Mention, ID, or username")
+    .setDescription("ID, username, or mention")
 
-.setRequired(true)
+    .setRequired(true)
 
 )
 
-.addStringOption(option=>
+.addStringOption(option =>
 
-option
+    option
 
-.setName("reason")
+    .setName("reason")
 
-.setDescription("Reason")
+    .setDescription("Reason for unjail")
 
-.setRequired(false)
+    .setRequired(false)
 
 )
 
 .setDefaultMemberPermissions(
-PermissionFlagsBits.ModerateMembers
+    PermissionFlagsBits.ModerateMembers
 ),
 
 
@@ -144,14 +148,17 @@ category:"Moderation",
 
 
 
+
 async execute(interaction){
+
 
 
 const target =
 await findUser(
-interaction.options.getString("user"),
-interaction
+    interaction.options.getString("user"),
+    interaction
 );
+
 
 
 
@@ -170,7 +177,10 @@ ephemeral:true
 
 
 
+
 const data = getData();
+
+
 
 
 
@@ -189,6 +199,7 @@ ephemeral:true
 
 
 
+
 const reason =
 interaction.options.getString("reason")
 ||
@@ -198,15 +209,27 @@ interaction.options.getString("reason")
 
 
 
+
+// Remove jail role
+
 await target.roles.remove(
-JAIL_ROLE_ID
-).catch(()=>{});
+    JAIL_ROLE_ID
+)
+.catch(()=>{});
 
 
+
+
+
+
+// Restore previous roles
 
 await target.roles.add(
-data[target.id].roles
-).catch(()=>{});
+    data[target.id].roles
+)
+.catch(()=>{});
+
+
 
 
 
@@ -221,6 +244,10 @@ saveData(data);
 
 
 
+
+
+// DM Member
+
 await target.send({
 
 embeds:[
@@ -231,15 +258,17 @@ new EmbedBuilder()
 
 .setDescription(
 
-`Server: **${interaction.guild.name}**\n\n`+
+`You have been released from jail in **${interaction.guild.name}**.\n\n`+
 
-`Staff: ${interaction.user}\n`+
+`Staff member: ${interaction.user}\n`+
 
 `Reason: ${reason}`
 
 )
 
 .setColor("Green")
+
+.setTimestamp()
 
 ]
 
@@ -249,9 +278,31 @@ new EmbedBuilder()
 
 
 
+
+
+
+
+// Staff response
+
 await interaction.reply({
 
-content:`${target} has been unjailed.\nReason: ${reason}`
+embeds:[
+
+new EmbedBuilder()
+
+.setTitle("Member Unjailed")
+
+.setDescription(
+
+`${target} has been released from jail.\n\n`+
+
+`Reason: ${reason}`
+
+)
+
+.setColor("Green")
+
+]
 
 });
 
@@ -259,26 +310,32 @@ content:`${target} has been unjailed.\nReason: ${reason}`
 
 
 
+
+
+
+// Logs
+
 const logs =
 interaction.guild.channels.cache.get(
-LOG_CHANNEL_ID
+    LOG_CHANNEL_ID
 );
+
 
 
 
 if(logs){
 
-logs.send({
+await logs.send({
 
 embeds:[
 
 new EmbedBuilder()
 
-.setTitle("🔓 Unjail Log")
+.setTitle("Unjail Log")
 
 .setDescription(
 
-`Member: ${target}\n`+
+`Member: ${target}\n\n`+
 
 `Staff: ${interaction.user}\n`+
 
