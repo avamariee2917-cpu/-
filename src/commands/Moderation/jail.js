@@ -5,6 +5,8 @@ import {
 } from "discord.js";
 
 const JAIL_ROLE_ID = "1532199532916375773";
+const LOG_CHANNEL_ID = "1533730276965089390";
+
 
 export default {
     data: new SlashCommandBuilder()
@@ -28,9 +30,11 @@ export default {
 
     category: "Moderation",
 
+
     async execute(interaction) {
 
         const target = interaction.options.getMember("user");
+
         const reason =
             interaction.options.getString("reason") ||
             "No reason provided";
@@ -65,57 +69,59 @@ export default {
         }
 
 
-        // DM the user first
+
+        // DM the jailed member
         await target.send({
             embeds: [
                 new EmbedBuilder()
                     .setTitle("You have been jailed")
                     .setDescription(
                         `You have been jailed in **${interaction.guild.name}**.\n\n` +
-                        `**Staff member:** ${interaction.user.tag}\n` +
+                        `**Staff Member:** ${interaction.user.tag}\n` +
                         `**Reason:** ${reason}`
                     )
                     .setColor("Red")
+                    .setTimestamp()
             ]
         }).catch(() => {});
 
 
-        // Remove current roles except managed roles
-        const roles = target.roles.cache
+
+        // Remove roles
+        const removableRoles = target.roles.cache
             .filter(role => role.id !== interaction.guild.id)
             .filter(role => !role.managed);
 
 
-        await target.roles.remove(
-            roles
-        ).catch(() => {});
+        await target.roles.remove(removableRoles)
+            .catch(() => {});
 
 
-        // Give jail role
-        await target.roles.add(
-            jailRole
-        );
+
+        // Add jail role
+        await target.roles.add(jailRole);
 
 
-        // Jail confirmation
+
+        // Reply to staff
         await interaction.reply({
             embeds: [
                 new EmbedBuilder()
                     .setTitle("Member Jailed")
                     .setDescription(
-                        `${target.user.tag} has been jailed.\n\n` +
+                        `**Member:** ${target}\n` +
                         `**Reason:** ${reason}`
                     )
                     .setColor("Red")
+                    .setTimestamp()
             ]
         });
 
 
-        // Logging
-        const logChannel = interaction.guild.channels.cache.find(
-            channel =>
-                channel.name.includes("log") &&
-                channel.isTextBased()
+
+        // Send log
+        const logChannel = interaction.guild.channels.cache.get(
+            LOG_CHANNEL_ID
         );
 
 
@@ -124,10 +130,12 @@ export default {
             await logChannel.send({
                 embeds: [
                     new EmbedBuilder()
-                        .setTitle("Member Jailed")
+                        .setTitle("🔒 Member Jailed")
                         .setDescription(
-                            `**Member:** ${target.user.tag}\n` +
-                            `**Jailed by:** ${interaction.user.tag}\n` +
+                            `**Member:** ${target}\n` +
+                            `**User ID:** ${target.id}\n\n` +
+                            `**Jailed By:** ${interaction.user}\n` +
+                            `**Staff ID:** ${interaction.user.id}\n\n` +
                             `**Reason:** ${reason}`
                         )
                         .setColor("Red")
