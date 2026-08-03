@@ -276,7 +276,7 @@ new EmbedBuilder()
 
 await interaction.reply({
 
-content:`🔒 ${target} has been jailed.\nReason: ${reason}`
+content:`${target} has been jailed.\nReason: ${reason}`
 
 });
 
@@ -299,7 +299,7 @@ embeds:[
 
 new EmbedBuilder()
 
-.setTitle("🔒 Jail Log")
+.setTitle("Jail Log")
 
 .setDescription(
 
