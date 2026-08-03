@@ -10,6 +10,9 @@ import path from "path";
 const BOOSTER_ROLE_1 = "1532269323584802836";
 const BOOSTER_ROLE_2 = "1533675708193177700";
 
+// Role that booster custom roles will appear under
+const BOOSTER_ROLE_PARENT = "PUT_ROLE_ID_HERE";
+
 const storageFile = path.join(
     process.cwd(),
     "data",
@@ -41,7 +44,6 @@ function normalizeColor(color) {
 
     let cleaned = color.trim();
 
-    // allow both 527357 and #527357
     if (!cleaned.startsWith("#")) {
         cleaned = `#${cleaned}`;
     }
@@ -115,14 +117,17 @@ export default {
         const existingRoleId = roles[member.id];
 
         let existingRole = null;
+
         if (existingRoleId) {
             existingRole = interaction.guild.roles.cache.get(existingRoleId);
         }
 
         const action = interaction.options.getSubcommand();
 
+
         // CREATE
         if (action === "create") {
+
             if (existingRole) {
                 const buttons = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
@@ -142,9 +147,11 @@ export default {
                 });
             }
 
+
             const name = interaction.options.getString("name");
             const colorInput = interaction.options.getString("color");
             const color = normalizeColor(colorInput) || "#000000";
+
 
             if (colorInput && !normalizeColor(colorInput)) {
                 return interaction.reply({
@@ -152,32 +159,52 @@ export default {
                 });
             }
 
+
             const role = await interaction.guild.roles.create({
                 name,
                 color,
                 reason: "Booster custom role"
             });
 
+
+            // Move booster role under selected role
+            const parentRole = interaction.guild.roles.cache.get(
+                BOOSTER_ROLE_PARENT
+            );
+
+            if (parentRole) {
+                await role.setPosition(parentRole.position - 1)
+                    .catch(() => {});
+            }
+
+
             await member.roles.add(role);
+
 
             roles[member.id] = role.id;
             saveRoles(roles);
+
 
             return interaction.reply({
                 content: `${member.user} created the booster role ${role.name}`
             });
         }
 
+
+
         // UPDATE
         if (action === "update") {
+
             if (!existingRole) {
                 return interaction.reply({
                     content: "You do not have a booster role yet."
                 });
             }
 
+
             const name = interaction.options.getString("name");
             const colorInput = interaction.options.getString("color");
+
 
             if (!name && !colorInput) {
                 return interaction.reply({
@@ -185,12 +212,16 @@ export default {
                 });
             }
 
+
             if (name) {
                 await existingRole.setName(name);
             }
 
+
             if (colorInput) {
+
                 const color = normalizeColor(colorInput);
+
 
                 if (!color) {
                     return interaction.reply({
@@ -198,28 +229,40 @@ export default {
                     });
                 }
 
+
                 await existingRole.setColor(color);
             }
+
 
             return interaction.reply({
                 content: `${member.user} updated the booster role ${existingRole.name}`
             });
         }
 
+
+
         // DELETE
         if (action === "delete") {
+
             if (!existingRole) {
                 return interaction.reply({
                     content: "You do not have a booster role to delete."
                 });
             }
 
+
             const deletedName = existingRole.name;
 
-            await existingRole.delete("Booster deleted their custom role");
+
+            await existingRole.delete(
+                "Booster deleted their custom role"
+            );
+
 
             delete roles[member.id];
+
             saveRoles(roles);
+
 
             return interaction.reply({
                 content: `${member.user} deleted the booster role ${deletedName}.`
