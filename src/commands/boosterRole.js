@@ -164,7 +164,7 @@ export default {
             saveRoles(roles);
 
             return interaction.reply({
-                content: `✨ ${member.user} created the booster role **${role.name}**!`
+                content: `${member.user} created the booster role ${role.name}`
             });
         }
 
@@ -194,7 +194,7 @@ export default {
 
                 if (!color) {
                     return interaction.reply({
-                        content: "Invalid color format. Example: #527357"
+                        content: "Invalid color format. Example: #527357 or 527357"
                     });
                 }
 
@@ -202,7 +202,7 @@ export default {
             }
 
             return interaction.reply({
-                content: `✨ ${member.user} updated the booster role **${existingRole.name}**!`
+                content: `${member.user} updated the booster role ${existingRole.name}`
             });
         }
 
@@ -222,7 +222,7 @@ export default {
             saveRoles(roles);
 
             return interaction.reply({
-                content: `🗑️ ${member.user} deleted the booster role **${deletedName}**.`
+                content: `${member.user} deleted the booster role ${deletedName}.`
             });
         }
     }
