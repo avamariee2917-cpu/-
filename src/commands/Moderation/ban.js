@@ -17,12 +17,22 @@ const MOD_LOG_CHANNEL = "1533730276965089390";
 async function sendBanLog(guild, data) {
 
     const channel =
-        guild.channels.cache.get(
+        await guild.channels.fetch(
             MOD_LOG_CHANNEL
+        ).catch(() => null);
+
+
+
+    if (!channel) {
+
+        console.log(
+            "Ban log channel not found."
         );
 
+        return;
 
-    if (!channel) return;
+    }
+
 
 
     const embed = new EmbedBuilder()
@@ -51,10 +61,16 @@ async function sendBanLog(guild, data) {
 
         embeds:[embed]
 
-    }).catch(()=>{});
+    }).catch(error => {
+
+        console.log(
+            "Failed to send ban log:",
+            error
+        );
+
+    });
 
 }
-
 
 
 
