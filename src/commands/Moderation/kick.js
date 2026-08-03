@@ -10,13 +10,10 @@ import { ModerationService } from '../../services/moderation/moderationService.j
 import { TitanBotError, ErrorTypes } from '../../utils/errorHandler.js';
 
 
-
 const MOD_LOG_CHANNEL = "1533730276965089390";
 
 
-
 async function sendKickLog(guild, data){
-
 
     const channel =
         await guild.channels.fetch(
@@ -24,18 +21,10 @@ async function sendKickLog(guild, data){
         ).catch(()=>null);
 
 
-
     if(!channel){
-
-        console.log(
-            "Kick log channel not found."
-        );
-
+        console.log("Kick log channel not found.");
         return;
-
     }
-
-
 
 
     const embed = new EmbedBuilder()
@@ -43,46 +32,30 @@ async function sendKickLog(guild, data){
     .setTitle("Kick Log")
 
     .setDescription(
-
         `**Member:** ${data.user}\n\n`+
-
         `**Staff:** ${data.moderator}\n`+
-
         `**Reason:** ${data.reason}\n`+
-
         `**Case ID:** #${data.caseId}`
-
     )
 
     .setColor("Orange")
-
     .setTimestamp();
 
 
-
-
     await channel.send({
-
         embeds:[embed]
-
     }).catch(error=>{
-
         console.log(
             "Failed to send kick log:",
             error
         );
-
     });
-
 
 }
 
 
 
-
-
 async function sendKickDM(user, guild, moderator, reason){
-
 
     await user.send({
 
@@ -93,27 +66,19 @@ async function sendKickDM(user, guild, moderator, reason){
             .setTitle("You have been kicked")
 
             .setDescription(
-
                 `You have been kicked from **${guild.name}**.\n\n`+
-
                 `**Staff:** ${moderator}\n`+
-
                 `**Reason:** ${reason}`
-
             )
 
             .setColor("Orange")
-
             .setTimestamp()
 
         ]
 
     }).catch(()=>{});
 
-
 }
-
-
 
 
 
@@ -126,7 +91,6 @@ data: new SlashCommandBuilder()
 .setName("kick")
 
 .setDescription("Kick a user from the server")
-
 
 
 .addUserOption(option =>
@@ -142,7 +106,6 @@ data: new SlashCommandBuilder()
 )
 
 
-
 .addStringOption(option =>
 
     option
@@ -156,11 +119,9 @@ data: new SlashCommandBuilder()
 )
 
 
-
 .setDefaultMemberPermissions(
     PermissionFlagsBits.KickMembers
 ),
-
 
 
 
@@ -168,20 +129,15 @@ category:"moderation",
 
 
 
-
-
 async execute(interaction, config, client){
-
 
 
 const targetUser =
 interaction.options.getUser("target");
 
 
-
 const member =
 interaction.options.getMember("target");
-
 
 
 const reason =
@@ -191,85 +147,51 @@ interaction.options.getString("reason")
 
 
 
-
-
 if(!targetUser){
 
 throw new TitanBotError(
-
 "Missing target user",
-
 ErrorTypes.USER_INPUT,
-
 "You must specify a user to kick."
-
 );
 
 }
-
-
 
 
 
 if(targetUser.id === interaction.user.id){
 
-
 throw new TitanBotError(
-
 "Cannot kick self",
-
 ErrorTypes.VALIDATION,
-
 "You cannot kick yourself."
-
 );
 
-
 }
-
-
 
 
 
 if(targetUser.id === client.user.id){
 
-
 throw new TitanBotError(
-
 "Cannot kick bot",
-
 ErrorTypes.VALIDATION,
-
 "You cannot kick the bot."
-
 );
 
-
 }
-
-
-
 
 
 
 if(!member){
 
-
 throw new TitanBotError(
-
 "Target not found",
-
 ErrorTypes.USER_INPUT,
-
 "The target user is not currently in this server."
-
 );
 
-
 }
-
-
-
 
 
 
@@ -277,18 +199,15 @@ ErrorTypes.USER_INPUT,
 const result =
 await ModerationService.kickUser({
 
-guild:interaction.guild,
+guild: interaction.guild,
 
 member,
 
-moderator:interaction.member,
+moderator: interaction.member,
 
 reason
 
 });
-
-
-
 
 
 
@@ -308,31 +227,23 @@ reason
 
 
 
-
-
-
-
 await sendKickLog(
 
 interaction.guild,
 
 {
 
-user:targetUser,
+user: targetUser,
 
-moderator:interaction.user,
+moderator: interaction.user,
 
 reason,
 
-caseId:result.caseId
+caseId: result.caseId
 
 }
 
 );
-
-
-
-
 
 
 
@@ -360,9 +271,7 @@ successEmbed(
 );
 
 
-
 }
-
 
 
 };
