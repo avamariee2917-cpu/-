@@ -251,7 +251,7 @@ new EmbedBuilder()
 
 await interaction.reply({
 
-content:`🔓 ${target} has been unjailed.\nReason: ${reason}`
+content:`${target} has been unjailed.\nReason: ${reason}`
 
 });
 
