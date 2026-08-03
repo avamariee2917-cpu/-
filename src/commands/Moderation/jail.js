@@ -1,13 +1,16 @@
-import { 
+import {
     SlashCommandBuilder,
     PermissionFlagsBits,
     EmbedBuilder
 } from "discord.js";
+
 import fs from "fs";
 import path from "path";
 
+
 const JAIL_ROLE_ID = "1532199532916375773";
 const LOG_CHANNEL_ID = "1533730276965089390";
+
 
 const storageFile = path.join(
     process.cwd(),
@@ -16,76 +19,158 @@ const storageFile = path.join(
 );
 
 
-function loadJailedUsers() {
 
-    if (!fs.existsSync(storageFile)) {
-        fs.mkdirSync(path.dirname(storageFile), { recursive: true });
-        fs.writeFileSync(storageFile, "{}");
+function loadJailedUsers(){
+
+    if(!fs.existsSync(storageFile)){
+        fs.mkdirSync(path.dirname(storageFile), {recursive:true});
+        fs.writeFileSync(storageFile,"{}");
     }
 
     return JSON.parse(
-        fs.readFileSync(storageFile, "utf8")
+        fs.readFileSync(storageFile,"utf8")
     );
+
 }
 
 
-function saveJailedUsers(data) {
+
+function saveJailedUsers(data){
 
     fs.writeFileSync(
         storageFile,
-        JSON.stringify(data, null, 4)
+        JSON.stringify(data,null,4)
     );
 
 }
+
+
+
+async function resolveUser(input, client){
+
+    const mention =
+    input.match(/^<@!?(\d+)>$/);
+
+
+    if(mention){
+
+        return await client.users.fetch(
+            mention[1]
+        ).catch(()=>null);
+
+    }
+
+
+    if(/^\d{17,20}$/.test(input)){
+
+        return await client.users.fetch(
+            input
+        ).catch(()=>null);
+
+    }
+
+
+    const found =
+    client.users.cache.find(
+        user =>
+        user.username.toLowerCase()
+        === input.toLowerCase()
+    );
+
+
+    return found || null;
+
+}
+
+
 
 
 export default {
 
-data: new SlashCommandBuilder()
+data:new SlashCommandBuilder()
 
-    .setName("jail")
-    .setDescription("Jail a member")
+.setName("jail")
 
-    .addUserOption(option =>
-        option
-        .setName("user")
-        .setDescription("Member to jail")
-        .setRequired(true)
-    )
+.setDescription("Jail a member")
 
-    .addStringOption(option =>
-        option
-        .setName("reason")
-        .setDescription("Reason for jail")
-        .setRequired(false)
-    )
+.addStringOption(option=>
+    option
+    .setName("user")
+    .setDescription("Mention, ID, or username")
+    .setRequired(true)
+)
 
-    .setDefaultMemberPermissions(
-        PermissionFlagsBits.ModerateMembers
-    ),
+.addStringOption(option=>
+    option
+    .setName("reason")
+    .setDescription("Reason for jail")
+    .setRequired(false)
+)
 
-
-category: "Moderation",
+.setDefaultMemberPermissions(
+    PermissionFlagsBits.ModerateMembers
+),
 
 
-async execute(interaction) {
+category:"Moderation",
 
 
-const target = interaction.options.getMember("user");
+
+async execute(interaction){
+
+
+const input =
+interaction.options.getString("user");
+
 
 const reason =
-interaction.options.getString("reason") ||
+interaction.options.getString("reason")
+||
 "No reason provided";
+
+
+
+const user =
+await resolveUser(
+input,
+interaction.client
+);
+
+
+
+if(!user){
+
+return interaction.reply({
+
+content:"I could not find that user.",
+
+ephemeral:true
+
+});
+
+}
+
+
+
+const target =
+await interaction.guild.members.fetch(
+user.id
+).catch(()=>null);
+
 
 
 if(!target){
 
 return interaction.reply({
-content:"Member not found.",
+
+content:"That user is not in this server.",
+
 ephemeral:true
+
 });
 
 }
+
 
 
 
@@ -95,26 +180,34 @@ JAIL_ROLE_ID
 );
 
 
+
 if(!jailRole){
 
 return interaction.reply({
-content:"Jail role missing.",
+
+content:"Jail role not found.",
+
 ephemeral:true
+
 });
 
 }
 
 
 
-const jailedUsers = loadJailedUsers();
+const jailedUsers =
+loadJailedUsers();
 
 
 
 if(jailedUsers[target.id]){
 
 return interaction.reply({
+
 content:"That member is already jailed.",
+
 ephemeral:true
+
 });
 
 }
@@ -125,15 +218,42 @@ ephemeral:true
 
 const savedRoles =
 target.roles.cache
-.filter(role => role.id !== interaction.guild.id)
-.filter(role => !role.managed)
-.map(role => role.id);
+
+.filter(role =>
+role.id !== interaction.guild.id
+)
+
+.filter(role =>
+!role.managed
+)
+
+.map(role=>role.id);
 
 
 
-jailedUsers[target.id] = savedRoles;
+jailedUsers[target.id] =
+savedRoles;
 
-saveJailedUsers(jailedUsers);
+
+saveJailedUsers(
+jailedUsers
+);
+
+
+
+// Remove roles
+
+await target.roles.remove(
+savedRoles
+).catch(()=>{});
+
+
+
+// Add jail role
+
+await target.roles.add(
+jailRole
+);
 
 
 
@@ -148,9 +268,13 @@ new EmbedBuilder()
 .setTitle("You have been jailed")
 
 .setDescription(
+
 `You were jailed in **${interaction.guild.name}**.\n\n`+
+
 `**Staff:** ${interaction.user}\n`+
+
 `**Reason:** ${reason}`
+
 )
 
 .setColor("Red")
@@ -158,18 +282,6 @@ new EmbedBuilder()
 ]
 
 }).catch(()=>{});
-
-
-
-// Remove roles
-
-await target.roles.remove(savedRoles)
-.catch(()=>{});
-
-
-// Give jail role
-
-await target.roles.add(jailRole);
 
 
 
@@ -184,8 +296,11 @@ new EmbedBuilder()
 .setTitle("Member Jailed")
 
 .setDescription(
+
 `**Member:** ${target}\n`+
+
 `**Reason:** ${reason}`
+
 )
 
 .setColor("Red")
@@ -204,6 +319,7 @@ LOG_CHANNEL_ID
 );
 
 
+
 if(logChannel){
 
 await logChannel.send({
@@ -212,12 +328,16 @@ embeds:[
 
 new EmbedBuilder()
 
-.setTitle("🔒 Member Jailed")
+.setTitle("Member Jailed")
 
 .setDescription(
-`**Member:** ${target}\n`+
+
+`**Member:** ${target}\n\n`+
+
 `**Jailed By:** ${interaction.user}\n`+
+
 `**Reason:** ${reason}`
+
 )
 
 .setColor("Red")
