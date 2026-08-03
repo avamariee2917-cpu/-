@@ -10,6 +10,7 @@ import path from "path";
 
 const JAIL_ROLE_ID = "1532199532916375773";
 const LOG_CHANNEL_ID = "1533730276965089390";
+const JAIL_CHANNEL_ID = "1532200353238482954";
 
 
 const filePath = path.join(
@@ -26,7 +27,7 @@ function getData(){
 
         fs.mkdirSync(
             path.dirname(filePath),
-            {recursive:true}
+            { recursive:true }
         );
 
         fs.writeFileSync(
@@ -37,7 +38,7 @@ function getData(){
 
 
     return JSON.parse(
-        fs.readFileSync(filePath,"utf8")
+        fs.readFileSync(filePath, "utf8")
     );
 
 }
@@ -48,7 +49,7 @@ function saveData(data){
 
     fs.writeFileSync(
         filePath,
-        JSON.stringify(data,null,4)
+        JSON.stringify(data, null, 4)
     );
 
 }
@@ -84,17 +85,16 @@ async function findUser(input, interaction){
 
 
 
-    await guild.members.fetch();
+    await guild.members.fetch()
+    .catch(()=>{});
 
 
 
     return guild.members.cache.find(
-        m =>
-        m.user.username.toLowerCase()
-        === input.toLowerCase()
-        ||
-        m.displayName.toLowerCase()
-        === input.toLowerCase()
+        member =>
+            member.user.username.toLowerCase() === input.toLowerCase()
+            ||
+            member.displayName.toLowerCase() === input.toLowerCase()
     );
 
 }
@@ -104,7 +104,6 @@ async function findUser(input, interaction){
 
 export default {
 
-
 data:
 
 new SlashCommandBuilder()
@@ -113,32 +112,32 @@ new SlashCommandBuilder()
 
 .setDescription("Jail a member")
 
-.addStringOption(option=>
+.addStringOption(option =>
 
-option
+    option
 
-.setName("user")
+    .setName("user")
 
-.setDescription("ID, or username")
+    .setDescription("ID, username, or mention")
 
-.setRequired(true)
+    .setRequired(true)
 
 )
 
-.addStringOption(option=>
+.addStringOption(option =>
 
-option
+    option
 
-.setName("reason")
+    .setName("reason")
 
-.setDescription("Reason")
+    .setDescription("Reason for jail")
 
-.setRequired(false)
+    .setRequired(false)
 
 )
 
 .setDefaultMemberPermissions(
-PermissionFlagsBits.ModerateMembers
+    PermissionFlagsBits.ModerateMembers
 ),
 
 
@@ -152,8 +151,8 @@ async execute(interaction){
 
 const target =
 await findUser(
-interaction.options.getString("user"),
-interaction
+    interaction.options.getString("user"),
+    interaction
 );
 
 
@@ -200,17 +199,19 @@ ephemeral:true
 const savedRoles =
 target.roles.cache
 
-.filter(r =>
-r.id !== interaction.guild.id
+.filter(role =>
+    role.id !== interaction.guild.id
 )
 
-.filter(r =>
-!r.managed
+.filter(role =>
+    !role.managed
 )
 
-.map(r =>
-r.id
+.map(role =>
+    role.id
 );
+
+
 
 
 
@@ -231,19 +232,20 @@ saveData(data);
 
 
 
-await target.roles.remove(
-savedRoles
-).catch(()=>{});
+await target.roles.remove(savedRoles)
+.catch(()=>{});
 
 
 
-await target.roles.add(
-JAIL_ROLE_ID
-).catch(()=>{});
+await target.roles.add(JAIL_ROLE_ID)
+.catch(()=>{});
 
 
 
 
+
+
+// DM Member
 
 await target.send({
 
@@ -255,15 +257,17 @@ new EmbedBuilder()
 
 .setDescription(
 
-`Server: **${interaction.guild.name}**\n\n`+
+`You have been jailed in **${interaction.guild.name}**.\n\n`+
 
-`Staff: ${interaction.user}\n`+
+`Staff member: ${interaction.user}\n`+
 
 `Reason: ${reason}`
 
 )
 
 .setColor("Red")
+
+.setTimestamp()
 
 ]
 
@@ -274,9 +278,28 @@ new EmbedBuilder()
 
 
 
+
+// Staff response
+
 await interaction.reply({
 
-content:`${target} has been jailed.\nReason: ${reason}`
+embeds:[
+
+new EmbedBuilder()
+
+.setTitle("Member Jailed")
+
+.setDescription(
+
+`${target} has been placed in jail.\n\n`+
+
+`Reason: ${reason}`
+
+)
+
+.setColor("Red")
+
+]
 
 });
 
@@ -284,16 +307,66 @@ content:`${target} has been jailed.\nReason: ${reason}`
 
 
 
+
+
+// Jail channel message
+
+const jailChannel =
+interaction.guild.channels.cache.get(
+    JAIL_CHANNEL_ID
+);
+
+
+
+if(jailChannel){
+
+await jailChannel.send({
+
+content:`${target}`,
+
+embeds:[
+
+new EmbedBuilder()
+
+.setTitle("Jail Notice")
+
+.setDescription(
+
+`${target}, you have been jailed.\n\n`+
+
+`Reason: **${reason}**\n\n`+
+
+`Please wait for a staff member to assist you and discuss your jail.`
+
+)
+
+.setColor("Red")
+
+.setTimestamp()
+
+]
+
+});
+
+}
+
+
+
+
+
+
+// Logs
+
 const logs =
 interaction.guild.channels.cache.get(
-LOG_CHANNEL_ID
+    LOG_CHANNEL_ID
 );
 
 
 
 if(logs){
 
-logs.send({
+await logs.send({
 
 embeds:[
 
@@ -303,7 +376,7 @@ new EmbedBuilder()
 
 .setDescription(
 
-`Member: ${target}\n`+
+`Member: ${target}\n\n`+
 
 `Staff: ${interaction.user}\n`+
 
