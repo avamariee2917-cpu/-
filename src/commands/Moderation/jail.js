@@ -24,7 +24,7 @@ function loadJailedUsers(){
 
     if(!fs.existsSync(storageFile)){
         fs.mkdirSync(path.dirname(storageFile), {recursive:true});
-        fs.writeFileSync(storageFile,"{}");
+        fs.writeFileSync(storageFile, "{}");
     }
 
     return JSON.parse(
@@ -46,61 +46,51 @@ function saveJailedUsers(data){
 
 
 
-async function resolveUser(input, client){
+async function resolveUser(input, client, guild){
 
-    const mention =
-    input.match(/^<@!?(\d+)>$/);
-
+    const mention = input.match(/^<@!?(\d+)>$/);
 
     if(mention){
-
-        return await client.users.fetch(
-            mention[1]
-        ).catch(()=>null);
-
+        return await client.users.fetch(mention[1]).catch(()=>null);
     }
 
 
     if(/^\d{17,20}$/.test(input)){
-
-        return await client.users.fetch(
-            input
-        ).catch(()=>null);
-
+        return await client.users.fetch(input).catch(()=>null);
     }
 
 
-    const found =
-    client.users.cache.find(
-        user =>
-        user.username.toLowerCase()
-        === input.toLowerCase()
+    await guild.members.fetch().catch(()=>{});
+
+
+    const member = guild.members.cache.find(
+        m =>
+        m.user.username.toLowerCase() === input.toLowerCase() ||
+        m.displayName.toLowerCase() === input.toLowerCase()
     );
 
 
-    return found || null;
+    return member?.user || null;
 
 }
 
 
 
-
 export default {
 
-data:new SlashCommandBuilder()
+data: new SlashCommandBuilder()
 
 .setName("jail")
-
 .setDescription("Jail a member")
 
-.addStringOption(option=>
+.addStringOption(option =>
     option
     .setName("user")
     .setDescription("Mention, ID, or username")
     .setRequired(true)
 )
 
-.addStringOption(option=>
+.addStringOption(option =>
     option
     .setName("reason")
     .setDescription("Reason for jail")
@@ -125,15 +115,14 @@ interaction.options.getString("user");
 
 const reason =
 interaction.options.getString("reason")
-||
-"No reason provided";
-
+|| "No reason provided";
 
 
 const user =
 await resolveUser(
-input,
-interaction.client
+    input,
+    interaction.client,
+    interaction.guild
 );
 
 
@@ -141,11 +130,8 @@ interaction.client
 if(!user){
 
 return interaction.reply({
-
 content:"I could not find that user.",
-
 ephemeral:true
-
 });
 
 }
@@ -153,24 +139,19 @@ ephemeral:true
 
 
 const target =
-await interaction.guild.members.fetch(
-user.id
-).catch(()=>null);
+await interaction.guild.members.fetch(user.id)
+.catch(()=>null);
 
 
 
 if(!target){
 
 return interaction.reply({
-
 content:"That user is not in this server.",
-
 ephemeral:true
-
 });
 
 }
-
 
 
 
@@ -184,11 +165,8 @@ JAIL_ROLE_ID
 if(!jailRole){
 
 return interaction.reply({
-
 content:"Jail role not found.",
-
 ephemeral:true
-
 });
 
 }
@@ -203,11 +181,8 @@ loadJailedUsers();
 if(jailedUsers[target.id]){
 
 return interaction.reply({
-
 content:"That member is already jailed.",
-
 ephemeral:true
-
 });
 
 }
@@ -216,44 +191,28 @@ ephemeral:true
 
 // Save roles
 
-const savedRoles =
+const roles =
 target.roles.cache
-
-.filter(role =>
-role.id !== interaction.guild.id
-)
-
-.filter(role =>
-!role.managed
-)
-
-.map(role=>role.id);
+.filter(role => role.id !== interaction.guild.id)
+.filter(role => !role.managed)
+.map(role => role.id);
 
 
 
-jailedUsers[target.id] =
-savedRoles;
+jailedUsers[target.id] = roles;
 
-
-saveJailedUsers(
-jailedUsers
-);
+saveJailedUsers(jailedUsers);
 
 
 
 // Remove roles
 
-await target.roles.remove(
-savedRoles
-).catch(()=>{});
-
+await target.roles.remove(roles).catch(()=>{});
 
 
 // Add jail role
 
-await target.roles.add(
-jailRole
-);
+await target.roles.add(jailRole);
 
 
 
@@ -268,16 +227,14 @@ new EmbedBuilder()
 .setTitle("You have been jailed")
 
 .setDescription(
-
 `You were jailed in **${interaction.guild.name}**.\n\n`+
-
 `**Staff:** ${interaction.user}\n`+
-
 `**Reason:** ${reason}`
-
 )
 
 .setColor("Red")
+
+.setTimestamp()
 
 ]
 
@@ -296,11 +253,8 @@ new EmbedBuilder()
 .setTitle("Member Jailed")
 
 .setDescription(
-
 `**Member:** ${target}\n`+
-
 `**Reason:** ${reason}`
-
 )
 
 .setColor("Red")
@@ -311,7 +265,7 @@ new EmbedBuilder()
 
 
 
-// Log
+// Logs
 
 const logChannel =
 interaction.guild.channels.cache.get(
@@ -328,16 +282,12 @@ embeds:[
 
 new EmbedBuilder()
 
-.setTitle("Member Jailed")
+.setTitle("🔒 Member Jailed")
 
 .setDescription(
-
 `**Member:** ${target}\n\n`+
-
 `**Jailed By:** ${interaction.user}\n`+
-
 `**Reason:** ${reason}`
-
 )
 
 .setColor("Red")
