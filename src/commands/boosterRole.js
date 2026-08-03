@@ -11,7 +11,7 @@ const BOOSTER_ROLE_1 = "1532269323584802836";
 const BOOSTER_ROLE_2 = "1533675708193177700";
 
 // Role that booster custom roles will appear under
-const BOOSTER_ROLE_PARENT = "PUT_ROLE_ID_HERE";
+const BOOSTER_ROLE_PARENT = "1531881126854004816";
 
 const storageFile = path.join(
     process.cwd(),
