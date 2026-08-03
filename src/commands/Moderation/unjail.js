@@ -1,7 +1,7 @@
 import {
-SlashCommandBuilder,
-PermissionFlagsBits,
-EmbedBuilder
+    SlashCommandBuilder,
+    PermissionFlagsBits,
+    EmbedBuilder
 } from "discord.js";
 
 import fs from "fs";
@@ -45,7 +45,48 @@ JSON.stringify(data,null,4)
 
 
 
+async function resolveUser(input,client){
+
+const mention =
+input.match(/^<@!?(\d+)>$/);
+
+
+if(mention){
+
+return await client.users.fetch(
+mention[1]
+).catch(()=>null);
+
+}
+
+
+if(/^\d{17,20}$/.test(input)){
+
+return await client.users.fetch(
+input
+).catch(()=>null);
+
+}
+
+
+
+const found =
+client.users.cache.find(
+user =>
+user.username.toLowerCase()
+===
+input.toLowerCase()
+);
+
+
+return found || null;
+
+}
+
+
+
 export default {
+
 
 data:new SlashCommandBuilder()
 
@@ -53,12 +94,31 @@ data:new SlashCommandBuilder()
 
 .setDescription("Remove a member from jail")
 
-.addUserOption(option=>
+.addStringOption(option=>
+
 option
+
 .setName("user")
-.setDescription("Member to unjail")
+
+.setDescription("Mention, ID, or username")
+
 .setRequired(true)
+
 )
+
+
+.addStringOption(option=>
+
+option
+
+.setName("reason")
+
+.setDescription("Reason for unjail")
+
+.setRequired(false)
+
+)
+
 
 .setDefaultMemberPermissions(
 PermissionFlagsBits.ModerateMembers
@@ -73,8 +133,58 @@ category:"Moderation",
 async execute(interaction){
 
 
+const input =
+interaction.options.getString("user");
+
+
+const reason =
+interaction.options.getString("reason")
+||
+"No reason provided";
+
+
+
+const user =
+await resolveUser(
+input,
+interaction.client
+);
+
+
+
+if(!user){
+
+return interaction.reply({
+
+content:"I could not find that user.",
+
+ephemeral:true
+
+});
+
+}
+
+
+
 const target =
-interaction.options.getMember("user");
+await interaction.guild.members.fetch(
+user.id
+).catch(()=>null);
+
+
+
+if(!target){
+
+return interaction.reply({
+
+content:"User is not in this server.",
+
+ephemeral:true
+
+});
+
+}
+
 
 
 const jailedUsers =
@@ -82,12 +192,12 @@ loadJailedUsers();
 
 
 
-const roles =
+const savedRoles =
 jailedUsers[target.id];
 
 
 
-if(!roles){
+if(!savedRoles){
 
 return interaction.reply({
 
@@ -101,7 +211,7 @@ ephemeral:true
 
 
 
-// remove jail role
+// Remove jail role
 
 await target.roles.remove(
 JAIL_ROLE_ID
@@ -109,17 +219,19 @@ JAIL_ROLE_ID
 
 
 
-// restore roles
+// Restore roles
 
 await target.roles.add(
-roles
+savedRoles
 ).catch(()=>{});
 
 
 
 delete jailedUsers[target.id];
 
-saveJailedUsers(jailedUsers);
+saveJailedUsers(
+jailedUsers
+);
 
 
 
@@ -134,8 +246,13 @@ new EmbedBuilder()
 .setTitle("You have been unjailed")
 
 .setDescription(
+
 `You have been released from jail in **${interaction.guild.name}**.\n\n`+
-`**Staff:** ${interaction.user}`
+
+`**Staff:** ${interaction.user}\n`+
+
+`**Reason:** ${reason}`
+
 )
 
 .setColor("Green")
@@ -146,22 +263,39 @@ new EmbedBuilder()
 
 
 
-// reply
+// Reply
 
 await interaction.reply({
 
-content:`${target} has been unjailed.`
+embeds:[
+
+new EmbedBuilder()
+
+.setTitle("Member Unjailed")
+
+.setDescription(
+
+`**Member:** ${target}\n`+
+
+`**Reason:** ${reason}`
+
+)
+
+.setColor("Green")
+
+]
 
 });
 
 
 
-// log
+// Log
 
 const logChannel =
 interaction.guild.channels.cache.get(
 LOG_CHANNEL_ID
 );
+
 
 
 if(logChannel){
@@ -175,8 +309,13 @@ new EmbedBuilder()
 .setTitle("🔓 Member Unjailed")
 
 .setDescription(
-`**Member:** ${target}\n`+
-`**Unjailed By:** ${interaction.user}`
+
+`**Member:** ${target}\n\n`+
+
+`**Unjailed By:** ${interaction.user}\n`+
+
+`**Reason:** ${reason}`
+
 )
 
 .setColor("Green")
