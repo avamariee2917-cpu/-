@@ -1,208 +1,460 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import {
+    SlashCommandBuilder,
+    PermissionFlagsBits,
+    EmbedBuilder
+} from 'discord.js';
+
 import { successEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { ModerationService } from '../../services/moderation/moderationService.js';
 import { TitanBotError, ErrorTypes } from '../../utils/errorHandler.js';
 
 
-export default {
-
-    data: new SlashCommandBuilder()
-        .setName("ban")
-        .setDescription("Ban a user from the server")
-
-        .addUserOption(option =>
-            option
-                .setName("target")
-                .setDescription("The user to ban")
-                .setRequired(true)
-        )
-
-        .addStringOption(option =>
-            option
-                .setName("reason")
-                .setDescription("Reason for the ban")
-                .setRequired(false)
-        )
-
-        .setDefaultMemberPermissions(
-            PermissionFlagsBits.BanMembers
-        ),
-
-
-    category: "moderation",
+const MOD_LOG_CHANNEL = "1533730276965089390";
 
 
 
-    async execute(interaction, config, client) {
+async function sendBanLog(guild, data) {
 
-        const user =
-            interaction.options.getUser("target");
-
-
-        const reason =
-            interaction.options.getString("reason")
-            || "No reason provided";
-
-
-
-        if (!user) {
-
-            throw new TitanBotError(
-                "Missing target user",
-                ErrorTypes.USER_INPUT,
-                "You must specify a user to ban."
-            );
-
-        }
-
-
-
-        if (user.id === interaction.user.id) {
-
-            throw new TitanBotError(
-                "Cannot ban self",
-                ErrorTypes.VALIDATION,
-                "You cannot ban yourself."
-            );
-
-        }
-
-
-
-        if (user.id === client.user.id) {
-
-            throw new TitanBotError(
-                "Cannot ban bot",
-                ErrorTypes.VALIDATION,
-                "You cannot ban the bot."
-            );
-
-        }
-
-
-
-        const result =
-            await ModerationService.banUser({
-
-                guild: interaction.guild,
-
-                user,
-
-                moderator: interaction.member,
-
-                reason,
-
-            });
-
-
-
-        await InteractionHelper.universalReply(
-            interaction,
-            {
-                embeds: [
-                    successEmbed(
-                        `🔨 **Banned** ${user.tag}`,
-                        `**Reason:** ${reason}\n**Case ID:** #${result.caseId}`
-                    )
-                ]
-            }
+    const channel =
+        guild.channels.cache.get(
+            MOD_LOG_CHANNEL
         );
 
-    },
+
+    if (!channel) return;
+
+
+    const embed = new EmbedBuilder()
+
+        .setTitle("Ban Log")
+
+        .setDescription(
+
+            `**Member:** ${data.user}\n\n`+
+
+            `**Staff:** ${data.moderator}\n`+
+
+            `**Reason:** ${data.reason}\n`+
+
+            `**Case ID:** #${data.caseId}`
+
+        )
+
+        .setColor("Red")
+
+        .setTimestamp();
 
 
 
-    prefixExecute: async (message, args, client) => {
+    await channel.send({
 
+        embeds:[embed]
 
-        const input = args[0];
+    }).catch(()=>{});
 
-
-        if (!input) {
-
-            return message.reply(
-                "Please provide a user mention or ID."
-            );
-
-        }
+}
 
 
 
-        let user = null;
 
+async function sendBanDM(user, guild, moderator, reason){
 
-        const mention =
-            input.match(/^<@!?(\d+)>$/);
+    await user.send({
 
+        embeds:[
 
+            new EmbedBuilder()
 
-        if (mention) {
+            .setTitle("You have been banned")
 
-            user =
-                await client.users.fetch(
-                    mention[1]
-                ).catch(() => null);
+            .setDescription(
 
-        }
+                `You have been banned from **${guild.name}**.\n\n`+
 
+                `**Staff:** ${moderator}\n`+
 
+                `**Reason:** ${reason}`
 
-        if (!user && /^\d{17,20}$/.test(input)) {
+            )
 
-            user =
-                await client.users.fetch(
-                    input
-                ).catch(() => null);
+            .setColor("Red")
 
-        }
+            .setTimestamp()
 
+        ]
 
+    }).catch(()=>{});
 
-        if (!user) {
-
-            return message.reply(
-                "I could not find that user."
-            );
-
-        }
+}
 
 
 
-        const reason =
-            args.slice(1).join(" ")
-            || "No reason provided";
+
+
+export default {
+
+
+data: new SlashCommandBuilder()
+
+.setName("ban")
+
+.setDescription("Ban a user from the server")
+
+
+.addUserOption(option =>
+
+    option
+
+    .setName("target")
+
+    .setDescription("The user to ban")
+
+    .setRequired(true)
+
+)
+
+
+.addStringOption(option =>
+
+    option
+
+    .setName("reason")
+
+    .setDescription("Reason for the ban")
+
+    .setRequired(false)
+
+)
+
+
+.setDefaultMemberPermissions(
+
+    PermissionFlagsBits.BanMembers
+
+),
 
 
 
-        const result =
-            await ModerationService.banUser({
-
-                guild: message.guild,
-
-                user,
-
-                moderator: message.member,
-
-                reason,
-
-            });
+category:"moderation",
 
 
 
-        await message.reply({
 
-            embeds: [
+async execute(interaction, config, client){
 
-                successEmbed(
-                    `🔨 **Banned** ${user.tag}`,
-                    `**Reason:** ${reason}\n**Case ID:** #${result.caseId}`
-                )
 
-            ]
 
-        });
+const user =
+interaction.options.getUser("target");
 
-    }
+
+
+const reason =
+interaction.options.getString("reason")
+||
+"No reason provided";
+
+
+
+
+
+if(!user){
+
+throw new TitanBotError(
+
+"Missing target user",
+
+ErrorTypes.USER_INPUT,
+
+"You must specify a user to ban."
+
+);
+
+}
+
+
+
+
+if(user.id === interaction.user.id){
+
+throw new TitanBotError(
+
+"Cannot ban self",
+
+ErrorTypes.VALIDATION,
+
+"You cannot ban yourself."
+
+);
+
+}
+
+
+
+
+if(user.id === client.user.id){
+
+throw new TitanBotError(
+
+"Cannot ban bot",
+
+ErrorTypes.VALIDATION,
+
+"You cannot ban the bot."
+
+);
+
+}
+
+
+
+
+const result =
+await ModerationService.banUser({
+
+guild: interaction.guild,
+
+user,
+
+moderator: interaction.member,
+
+reason
+
+});
+
+
+
+
+
+
+await sendBanDM(
+
+user,
+
+interaction.guild,
+
+interaction.user,
+
+reason
+
+);
+
+
+
+
+
+
+await sendBanLog(
+
+interaction.guild,
+
+{
+
+user,
+
+moderator: interaction.user,
+
+reason,
+
+caseId: result.caseId
+
+}
+
+);
+
+
+
+
+
+
+
+await InteractionHelper.universalReply(
+
+interaction,
+
+{
+
+embeds:[
+
+successEmbed(
+
+`Banned ${user.tag}`,
+
+`Reason: ${reason}\nCase ID: #${result.caseId}`
+
+)
+
+]
+
+}
+
+);
+
+
+
+},
+
+
+
+
+
+prefixExecute: async(message,args,client)=>{
+
+
+const input =
+args[0];
+
+
+
+if(!input){
+
+return message.reply(
+
+"Please provide a user mention or ID."
+
+);
+
+}
+
+
+
+
+
+let user = null;
+
+
+
+
+const mention =
+input.match(/^<@!?(\d+)>$/);
+
+
+
+if(mention){
+
+user =
+await client.users.fetch(
+mention[1]
+).catch(()=>null);
+
+}
+
+
+
+
+
+if(!user && /^\d{17,20}$/.test(input)){
+
+user =
+await client.users.fetch(
+input
+).catch(()=>null);
+
+}
+
+
+
+
+
+if(!user){
+
+return message.reply(
+
+"I could not find that user."
+
+);
+
+}
+
+
+
+
+
+const reason =
+args.slice(1).join(" ")
+||
+"No reason provided";
+
+
+
+
+
+const result =
+await ModerationService.banUser({
+
+guild: message.guild,
+
+user,
+
+moderator: message.member,
+
+reason
+
+});
+
+
+
+
+
+await sendBanDM(
+
+user,
+
+message.guild,
+
+message.author,
+
+reason
+
+);
+
+
+
+
+
+await sendBanLog(
+
+message.guild,
+
+{
+
+user,
+
+moderator: message.author,
+
+reason,
+
+caseId: result.caseId
+
+}
+
+);
+
+
+
+
+
+
+await message.reply({
+
+embeds:[
+
+successEmbed(
+
+`Banned ${user.tag}`,
+
+`Reason: ${reason}\nCase ID: #${result.caseId}`
+
+)
+
+]
+
+});
+
+
+
+}
+
 
 };
