@@ -1,117 +1,166 @@
 import { SlashCommandBuilder } from "discord.js";
+import { getBoosterRole, setBoosterRole } from "../../services/boosterRoleService.js";
+
 
 const BOOSTER_ROLE_1 = "1532269323584802836";
 const BOOSTER_ROLE_2 = "1533675708193177700";
 
+
 export default {
-    data: new SlashCommandBuilder()
-        .setName("br")
-        .setDescription("Customize your booster role")
 
-        .addStringOption(option =>
-            option
-                .setName("name")
-                .setDescription("Change your role name")
-                .setRequired(false)
-        )
+data: new SlashCommandBuilder()
 
-        .addStringOption(option =>
-            option
-                .setName("color")
-                .setDescription("Change role color (#527357)")
-                .setRequired(false)
-        ),
+.setName("br")
+.setDescription("Customize your booster role")
 
+.addStringOption(option =>
+option
+.setName("name")
+.setDescription("Change your role name")
+)
 
-    category: "Community",
+.addStringOption(option =>
+option
+.setName("color")
+.setDescription("Change role color (#527357)")
+),
 
 
-    async execute(interaction) {
-
-        const member = interaction.member;
-
-
-        const isBooster =
-            member.roles.cache.has(BOOSTER_ROLE_1) ||
-            member.roles.cache.has(BOOSTER_ROLE_2);
-
-
-        if (!isBooster) {
-            return interaction.reply({
-                content: "You must be a booster to use this command.",
-                ephemeral: true
-            });
-        }
-
-
-        // Find existing booster role by USER ID
-        let boosterRole = interaction.guild.roles.cache.find(
-            role => role.name.endsWith(`| ${member.id}`)
-        );
-
-
-        // Create only if they don't already have one
-        if (!boosterRole) {
-
-            boosterRole = await interaction.guild.roles.create({
-                name: `✦ ${member.user.username} | ${member.id}`,
-                color: "#000000",
-                reason: "Booster custom role"
-            });
-
-
-            await member.roles.add(boosterRole);
-
-        }
+category: "Community",
 
 
 
-        const newName =
-            interaction.options.getString("name");
-
-        const newColor =
-            interaction.options.getString("color");
+async execute(interaction) {
 
 
+const member = interaction.member;
 
-        if (newName) {
 
-            await boosterRole.setName(
-                `✦ ${newName} | ${member.id}`
-            );
-
-        }
+const booster =
+member.roles.cache.has(BOOSTER_ROLE_1) ||
+member.roles.cache.has(BOOSTER_ROLE_2);
 
 
 
-        if (newColor) {
+if (!booster) {
 
-            if (!/^#[0-9A-F]{6}$/i.test(newColor)) {
+return interaction.reply({
 
-                return interaction.reply({
-                    content:
-                    "Invalid color. Use format like #527357",
-                    ephemeral: true
-                });
+content:
+"You must be a booster to use this command.",
 
-            }
+ephemeral:true
 
+});
 
-            await boosterRole.setColor(newColor);
-
-        }
+}
 
 
 
-        await interaction.reply({
-            content:
-            `Your booster role has been updated.\n\n` +
-            `Role: ${boosterRole}\n` +
-            `${newName ? `Name: ${newName}\n` : ""}` +
-            `${newColor ? `Color: ${newColor}` : ""}`,
+let roleId = getBoosterRole(member.id);
 
-            ephemeral: true
-        });
 
-    }
+let boosterRole = null;
+
+
+
+if(roleId){
+
+boosterRole =
+interaction.guild.roles.cache.get(roleId);
+
+}
+
+
+
+
+if(!boosterRole){
+
+
+boosterRole =
+await interaction.guild.roles.create({
+
+name:
+`✦ ${member.user.username}`,
+
+color:"#000000",
+
+reason:"Booster custom role"
+
+});
+
+
+await member.roles.add(boosterRole);
+
+
+setBoosterRole(
+member.id,
+boosterRole.id
+);
+
+}
+
+
+
+
+const name =
+interaction.options.getString("name");
+
+
+const color =
+interaction.options.getString("color");
+
+
+
+
+if(name){
+
+await boosterRole.setName(
+`✦ ${name}`
+);
+
+}
+
+
+
+if(color){
+
+
+if(!/^#[0-9A-F]{6}$/i.test(color)){
+
+
+return interaction.reply({
+
+content:
+"Invalid color. Example: #527357",
+
+ephemeral:true
+
+});
+
+
+}
+
+
+
+await boosterRole.setColor(color);
+
+
+}
+
+
+
+
+await interaction.reply({
+
+content:
+`Your booster role has been updated: ${boosterRole}`,
+
+ephemeral:true
+
+});
+
+
+}
+
 };
