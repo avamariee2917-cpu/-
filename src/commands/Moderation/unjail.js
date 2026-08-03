@@ -12,84 +12,87 @@ const JAIL_ROLE_ID = "1532199532916375773";
 const LOG_CHANNEL_ID = "1533730276965089390";
 
 
-const storageFile = path.join(
-    process.cwd(),
-    "data",
-    "jailedUsers.json"
+const filePath = path.join(
+process.cwd(),
+"data",
+"jailedUsers.json"
 );
 
 
 
-function loadJailedUsers(){
+function getData(){
 
-    if(!fs.existsSync(storageFile)){
-        fs.mkdirSync(path.dirname(storageFile), {recursive:true});
-        fs.writeFileSync(storageFile,"{}");
-    }
+if(!fs.existsSync(filePath)){
+return {};
+}
 
-    return JSON.parse(
-        fs.readFileSync(storageFile,"utf8")
-    );
+return JSON.parse(
+fs.readFileSync(filePath,"utf8")
+);
 
 }
 
 
 
-function saveJailedUsers(data){
+function saveData(data){
 
-    fs.writeFileSync(
-        storageFile,
-        JSON.stringify(data,null,4)
-    );
+fs.writeFileSync(
+filePath,
+JSON.stringify(data,null,4)
+);
 
 }
 
 
 
-async function resolveUser(input, client, guild){
+async function findUser(input, interaction){
 
-    const mention =
-    input.match(/^<@!?(\d+)>$/);
+const guild = interaction.guild;
 
 
-    if(mention){
-
-        return await client.users
-        .fetch(mention[1])
-        .catch(()=>null);
-
-    }
+const mention =
+input.match(/^<@!?(\d+)>$/);
 
 
 
-    if(/^\d{17,20}$/.test(input)){
+if(mention){
 
-        return await client.users
-        .fetch(input)
-        .catch(()=>null);
+return await guild.members.fetch(
+mention[1]
+).catch(()=>null);
 
-    }
-
-
-
-    await guild.members.fetch()
-    .catch(()=>{});
+}
 
 
 
-    const member =
-    guild.members.cache.find(
-        m =>
-        m.user.username.toLowerCase()
-        === input.toLowerCase()
-        ||
-        m.displayName.toLowerCase()
-        === input.toLowerCase()
-    );
+if(/^\d+$/.test(input)){
+
+return await guild.members.fetch(
+input
+).catch(()=>null);
+
+}
 
 
 
-    return member?.user || null;
+await guild.members.fetch();
+
+
+
+return guild.members.cache.find(
+
+m =>
+m.user.username.toLowerCase()
+===
+input.toLowerCase()
+||
+m.displayName.toLowerCase()
+===
+input.toLowerCase()
+
+);
+
+
 
 }
 
@@ -105,42 +108,34 @@ new SlashCommandBuilder()
 
 .setName("unjail")
 
-.setDescription("Remove a member from jail")
+.setDescription("Unjail a member")
 
+.addStringOption(option=>
 
+option
 
-.addStringOption(option =>
+.setName("user")
 
-    option
+.setDescription("Mention, ID, or username")
 
-    .setName("user")
-
-    .setDescription("Mention, ID, or username")
-
-    .setRequired(true)
+.setRequired(true)
 
 )
 
+.addStringOption(option=>
 
+option
 
-.addStringOption(option =>
+.setName("reason")
 
-    option
+.setDescription("Reason")
 
-    .setName("reason")
-
-    .setDescription("Reason for unjail")
-
-    .setRequired(false)
+.setRequired(false)
 
 )
-
-
 
 .setDefaultMemberPermissions(
-
 PermissionFlagsBits.ModerateMembers
-
 ),
 
 
@@ -149,155 +144,102 @@ category:"Moderation",
 
 
 
-
 async execute(interaction){
 
 
+const target =
+await findUser(
+interaction.options.getString("user"),
+interaction
+);
 
-const input =
-interaction.options.getString("user");
+
+
+if(!target){
+
+return interaction.reply({
+
+content:"I could not find that user.",
+
+ephemeral:true
+
+});
+
+}
+
+
+
+
+const data = getData();
+
+
+
+if(!data[target.id]){
+
+return interaction.reply({
+
+content:"This member is not jailed.",
+
+ephemeral:true
+
+});
+
+}
+
 
 
 
 const reason =
 interaction.options.getString("reason")
-|| "No reason provided";
+||
+"No reason provided";
 
 
 
-const user =
-await resolveUser(
 
-input,
 
-interaction.client,
+await target.roles.remove(
+JAIL_ROLE_ID
+).catch(()=>{});
 
-interaction.guild
 
-);
 
+await target.roles.add(
+data[target.id].roles
+).catch(()=>{});
 
 
-if(!user){
 
-return interaction.reply({
 
-content:
-"I could not find that user.",
 
-ephemeral:true
+delete data[target.id];
 
-});
+saveData(data);
 
-}
 
 
 
 
-const member =
-await interaction.guild.members
-.fetch(user.id)
-.catch(()=>null);
 
-
-
-if(!member){
-
-return interaction.reply({
-
-content:
-"That user is not in this server.",
-
-ephemeral:true
-
-});
-
-}
-
-
-
-
-
-const jailedUsers =
-loadJailedUsers();
-
-
-
-if(!jailedUsers[member.id]){
-
-return interaction.reply({
-
-content:
-"This member is not jailed.",
-
-ephemeral:true
-
-});
-
-}
-
-
-
-
-const oldRoles =
-jailedUsers[member.id];
-
-
-
-
-// Remove jail role
-
-await member.roles
-.remove(JAIL_ROLE_ID)
-.catch(()=>{});
-
-
-
-
-// Restore old roles
-
-await member.roles
-.add(oldRoles)
-.catch(()=>{});
-
-
-
-
-// Remove saved data
-
-delete jailedUsers[member.id];
-
-saveJailedUsers(jailedUsers);
-
-
-
-
-
-// DM Member
-
-await member.send({
+await target.send({
 
 embeds:[
 
 new EmbedBuilder()
 
-.setTitle(
-"You have been unjailed"
-)
+.setTitle("You have been unjailed")
 
 .setDescription(
 
-`You have been released from jail in **${interaction.guild.name}**.\n\n`+
+`Server: **${interaction.guild.name}**\n\n`+
 
-`**Staff:** ${interaction.user}\n`+
+`Staff: ${interaction.user}\n`+
 
-`**Reason:** ${reason}`
+`Reason: ${reason}`
 
 )
 
 .setColor("Green")
-
-.setTimestamp()
 
 ]
 
@@ -307,31 +249,9 @@ new EmbedBuilder()
 
 
 
-
-
-// Staff reply
-
 await interaction.reply({
 
-embeds:[
-
-new EmbedBuilder()
-
-.setTitle(
-"Member Unjailed"
-)
-
-.setDescription(
-
-`**Member:** ${member}\n\n`+
-
-`**Reason:** ${reason}`
-
-)
-
-.setColor("Green")
-
-]
+content:`🔓 ${target} has been unjailed.\nReason: ${reason}`
 
 });
 
@@ -339,37 +259,30 @@ new EmbedBuilder()
 
 
 
-
-
-// Logs
-
-const logChannel =
+const logs =
 interaction.guild.channels.cache.get(
 LOG_CHANNEL_ID
 );
 
 
 
-if(logChannel){
+if(logs){
 
-
-await logChannel.send({
+logs.send({
 
 embeds:[
 
 new EmbedBuilder()
 
-.setTitle(
-"🔓 Member Unjailed"
-)
+.setTitle("🔓 Unjail Log")
 
 .setDescription(
 
-`**Member:** ${member}\n\n`+
+`Member: ${target}\n`+
 
-`**Unjailed By:** ${interaction.user}\n`+
+`Staff: ${interaction.user}\n`+
 
-`**Reason:** ${reason}`
+`Reason: ${reason}`
 
 )
 
@@ -380,7 +293,6 @@ new EmbedBuilder()
 ]
 
 });
-
 
 }
 
