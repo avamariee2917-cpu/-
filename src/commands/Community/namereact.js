@@ -30,7 +30,6 @@ function loadData(){
             }
         );
 
-
         fs.writeFileSync(
             filePath,
             "{}"
@@ -67,7 +66,6 @@ function saveData(data){
 
 function hasPermission(member){
 
-
     return (
 
         member.roles.cache.has(STAFF_ROLE_ID)
@@ -78,16 +76,15 @@ function hasPermission(member){
 
         ||
 
-        member.roles.cache.has(
+        member.permissions.has(
             PermissionFlagsBits.Administrator
         )
 
         ||
 
-        member.premiumSince
+        member.premiumSince !== null
 
     );
-
 
 }
 
@@ -96,7 +93,6 @@ function hasPermission(member){
 
 
 export default {
-
 
     data:
 
@@ -107,7 +103,6 @@ export default {
     .setDescription(
         "Create custom name reactions"
     )
-
 
 
     .addSubcommand(sub =>
@@ -158,7 +153,7 @@ export default {
             .setName("emote2")
 
             .setDescription(
-                "Second reaction emoji (optional)"
+                "Second reaction emoji"
             )
 
             .setRequired(false)
@@ -173,7 +168,7 @@ export default {
             .setName("emote3")
 
             .setDescription(
-                "Third reaction emoji (optional)"
+                "Third reaction emoji"
             )
 
             .setRequired(false)
@@ -181,7 +176,6 @@ export default {
         )
 
     )
-
 
 
 
@@ -214,15 +208,12 @@ export default {
 
 
 
-
     category:"community",
 
 
 
 
-
     async execute(interaction){
-
 
 
         if(!hasPermission(interaction.member)){
@@ -242,8 +233,6 @@ export default {
 
 
 
-
-
         const data =
         loadData();
 
@@ -251,7 +240,6 @@ export default {
 
         const action =
         interaction.options.getSubcommand();
-
 
 
 
@@ -264,10 +252,7 @@ export default {
 
 
 
-
-
         if(action === "set"){
-
 
 
             const emojis = [
@@ -281,29 +266,21 @@ export default {
             ]
 
             .filter(Boolean)
-
             .slice(0,3);
-
-
 
 
 
             data[name] = {
 
-
-                trigger:name,
-
-
-                emojis:emojis,
-
+                emojis,
 
                 createdBy:
-                interaction.user.id
+                interaction.user.id,
 
+                createdAt:
+                Date.now()
 
             };
-
-
 
 
 
@@ -311,18 +288,13 @@ export default {
 
 
 
-
-
             return interaction.reply({
 
                 content:
 
-                `Created name reaction:\n\n**Name:** ${name}\n**Reactions:** ${emojis.join(" ")}`,
-
-                ephemeral:true
+                `Created name reaction for **${name}**\n\nReactions: ${emojis.join(" ")}`
 
             });
-
 
 
         }
@@ -332,7 +304,6 @@ export default {
 
 
         if(action === "remove"){
-
 
 
             if(!data[name]){
@@ -352,14 +323,10 @@ export default {
 
 
 
-
-
             delete data[name];
 
 
-
             saveData(data);
-
 
 
 
@@ -367,20 +334,15 @@ export default {
 
                 content:
 
-                `Removed name reaction for **${name}**.`,
-
-                ephemeral:true
+                `Removed name reaction for **${name}**.`
 
             });
-
 
 
         }
 
 
-
     }
-
 
 
 };
