@@ -19,13 +19,15 @@ const filePath = path.join(
 
 
 
-function loadReactions(){
+function loadData(){
 
     if(!fs.existsSync(filePath)){
 
         fs.mkdirSync(
             path.dirname(filePath),
-            { recursive:true }
+            {
+                recursive:true
+            }
         );
 
 
@@ -48,7 +50,7 @@ function loadReactions(){
 
 
 
-function saveReactions(data){
+function saveData(data){
 
     fs.writeFileSync(
         filePath,
@@ -63,7 +65,8 @@ function saveReactions(data){
 
 
 
-function canUseCommand(member){
+function hasPermission(member){
+
 
     return (
 
@@ -75,17 +78,25 @@ function canUseCommand(member){
 
         ||
 
-        member.permissions.has(
+        member.roles.cache.has(
             PermissionFlagsBits.Administrator
         )
 
+        ||
+
+        member.premiumSince
+
     );
+
 
 }
 
 
 
+
+
 export default {
+
 
     data:
 
@@ -94,8 +105,9 @@ export default {
     .setName("namereact")
 
     .setDescription(
-        "Manage custom name reactions"
+        "Create custom name reactions"
     )
+
 
 
     .addSubcommand(sub =>
@@ -105,7 +117,7 @@ export default {
         .setName("set")
 
         .setDescription(
-            "Create a custom name reaction"
+            "Create or edit a name reaction"
         )
 
 
@@ -116,7 +128,7 @@ export default {
             .setName("name")
 
             .setDescription(
-                "The word/name that triggers reactions"
+                "The word that activates the reactions"
             )
 
             .setRequired(true)
@@ -128,17 +140,48 @@ export default {
 
             option
 
-            .setName("emojis")
+            .setName("emote1")
 
             .setDescription(
-                "Maximum 3 emojis separated by spaces"
+                "First reaction emoji"
             )
 
             .setRequired(true)
 
         )
 
+
+        .addStringOption(option =>
+
+            option
+
+            .setName("emote2")
+
+            .setDescription(
+                "Second reaction emoji (optional)"
+            )
+
+            .setRequired(false)
+
+        )
+
+
+        .addStringOption(option =>
+
+            option
+
+            .setName("emote3")
+
+            .setDescription(
+                "Third reaction emoji (optional)"
+            )
+
+            .setRequired(false)
+
+        )
+
     )
+
 
 
 
@@ -171,14 +214,18 @@ export default {
 
 
 
+
     category:"community",
+
+
 
 
 
     async execute(interaction){
 
 
-        if(!canUseCommand(interaction.member)){
+
+        if(!hasPermission(interaction.member)){
 
 
             return interaction.reply({
@@ -190,12 +237,15 @@ export default {
 
             });
 
+
         }
 
 
 
+
+
         const data =
-        loadReactions();
+        loadData();
 
 
 
@@ -204,31 +254,31 @@ export default {
 
 
 
+
         const name =
         interaction.options
         .getString("name")
-        .trim();
+        .trim()
+        .toLowerCase();
 
 
 
-        const key =
-        name.toLowerCase();
 
 
 
         if(action === "set"){
 
 
-            const emojiInput =
-            interaction.options
-            .getString("emojis");
 
+            const emojis = [
 
+                interaction.options.getString("emote1"),
 
-            const emojis =
-            emojiInput
+                interaction.options.getString("emote2"),
 
-            .split(/\s+/)
+                interaction.options.getString("emote3")
+
+            ]
 
             .filter(Boolean)
 
@@ -236,27 +286,12 @@ export default {
 
 
 
-            if(emojis.length === 0){
 
 
-                return interaction.reply({
-
-                    content:
-                    "You need to provide emojis.",
-
-                    ephemeral:true
-
-                });
+            data[name] = {
 
 
-            }
-
-
-
-            data[key] = {
-
-
-                name:name,
+                trigger:name,
 
 
                 emojis:emojis,
@@ -270,7 +305,11 @@ export default {
 
 
 
-            saveReactions(data);
+
+
+            saveData(data);
+
+
 
 
 
@@ -278,11 +317,12 @@ export default {
 
                 content:
 
-                `Created name reaction for **${name}**.\nReactions: ${emojis.join(" ")}`,
+                `Created name reaction:\n\n**Name:** ${name}\n**Reactions:** ${emojis.join(" ")}`,
 
                 ephemeral:true
 
             });
+
 
 
         }
@@ -290,10 +330,12 @@ export default {
 
 
 
+
         if(action === "remove"){
 
 
-            if(!data[key]){
+
+            if(!data[name]){
 
 
                 return interaction.reply({
@@ -310,16 +352,21 @@ export default {
 
 
 
-            delete data[key];
 
 
-            saveReactions(data);
+            delete data[name];
+
+
+
+            saveData(data);
+
 
 
 
             return interaction.reply({
 
                 content:
+
                 `Removed name reaction for **${name}**.`,
 
                 ephemeral:true
@@ -327,10 +374,13 @@ export default {
             });
 
 
+
         }
 
 
+
     }
+
 
 
 };
