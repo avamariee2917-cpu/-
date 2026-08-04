@@ -1,20 +1,20 @@
 import {
     SlashCommandBuilder,
-    PermissionFlagsBits,
+    PermissionFlagsBits
 } from "discord.js";
 
 import fs from "fs";
 import path from "path";
 
 
-const OWNER_ROLE_ID = "1531440557954437273";
 const STAFF_ROLE_ID = "1532221464839848016";
+const OWNER_ROLE_ID = "1531440557954437273";
 
 
 const filePath = path.join(
     process.cwd(),
     "data",
-    "nameReacts.json"
+    "nameReactions.json"
 );
 
 
@@ -28,6 +28,7 @@ function getData(){
             { recursive:true }
         );
 
+
         fs.writeFileSync(
             filePath,
             "{}"
@@ -37,7 +38,10 @@ function getData(){
 
 
     return JSON.parse(
-        fs.readFileSync(filePath, "utf8")
+        fs.readFileSync(
+            filePath,
+            "utf8"
+        )
     );
 
 }
@@ -48,106 +52,31 @@ function saveData(data){
 
     fs.writeFileSync(
         filePath,
-        JSON.stringify(data,null,4)
-    );
-
-}
-
-
-
-function hasAccess(interaction){
-
-    const member = interaction.member;
-
-
-    if(
-        interaction.guild.ownerId === interaction.user.id
-    ){
-
-        return true;
-
-    }
-
-
-
-    if(
-        member.roles.cache.has(OWNER_ROLE_ID)
-    ){
-
-        return true;
-
-    }
-
-
-
-    if(
-        member.roles.cache.has(STAFF_ROLE_ID)
-    ){
-
-        return true;
-
-    }
-
-
-
-    if(
-        member.roles.cache.has(
-            interaction.guild.roles.premiumSubscriberRole?.id
+        JSON.stringify(
+            data,
+            null,
+            4
         )
-    ){
-
-        return true;
-
-    }
-
-
-
-    return false;
-
-}
-
-
-
-async function findUser(input, guild){
-
-    const mention =
-    input.match(/^<@!?(\d+)>$/);
-
-
-    if(mention){
-
-        return await guild.members.fetch(
-            mention[1]
-        ).catch(()=>null);
-
-    }
-
-
-
-    if(/^\d+$/.test(input)){
-
-        return await guild.members.fetch(
-            input
-        ).catch(()=>null);
-
-    }
-
-
-
-    await guild.members.fetch();
-
-
-
-    return guild.members.cache.find(
-        member =>
-            member.user.username.toLowerCase()
-            === input.toLowerCase()
-            ||
-            member.displayName.toLowerCase()
-            === input.toLowerCase()
     );
 
 }
+
+
+
+function hasAccess(member){
+
+    return (
+        member.roles.cache.has(STAFF_ROLE_ID)
+        ||
+        member.roles.cache.has(OWNER_ROLE_ID)
+        ||
+        member.permissions.has(
+            PermissionFlagsBits.Administrator
+        )
+    );
+
+}
+
 
 
 
@@ -161,7 +90,7 @@ new SlashCommandBuilder()
 .setName("namereact")
 
 .setDescription(
-    "Manage name reactions"
+    "Manage custom name reactions"
 )
 
 
@@ -172,7 +101,7 @@ new SlashCommandBuilder()
     .setName("set")
 
     .setDescription(
-        "Add name reactions to a user"
+        "Create or update a name reaction"
     )
 
 
@@ -180,10 +109,10 @@ new SlashCommandBuilder()
 
         option
 
-        .setName("user")
+        .setName("name")
 
         .setDescription(
-            "User ID, mention, or username"
+            "The custom name to react to"
         )
 
         .setRequired(true)
@@ -216,7 +145,7 @@ new SlashCommandBuilder()
     .setName("remove")
 
     .setDescription(
-        "Remove name reactions"
+        "Remove a name reaction"
     )
 
 
@@ -224,36 +153,16 @@ new SlashCommandBuilder()
 
         option
 
-        .setName("user")
+        .setName("name")
 
         .setDescription(
-            "User ID, mention, or username"
+            "Name reaction to remove"
         )
 
         .setRequired(true)
 
     )
 
-)
-
-
-
-.addSubcommand(sub =>
-
-    sub
-
-    .setName("list")
-
-    .setDescription(
-        "View saved name reactions"
-    )
-
-)
-
-
-
-.setDefaultMemberPermissions(
-    PermissionFlagsBits.ManageMessages
 ),
 
 
@@ -265,7 +174,7 @@ category:"community",
 async execute(interaction){
 
 
-    if(!hasAccess(interaction)){
+    if(!hasAccess(interaction.member)){
 
         return interaction.reply({
 
@@ -280,7 +189,6 @@ async execute(interaction){
 
 
 
-
     const data = getData();
 
 
@@ -290,28 +198,35 @@ async execute(interaction){
 
 
 
+    const name =
+    interaction.options.getString("name")
+    .trim()
+    .toLowerCase();
+
+
 
     if(sub === "set"){
 
 
-        const userInput =
-        interaction.options.getString("user");
+        const emojiInput =
+        interaction.options.getString("emojis");
 
 
 
         const emojis =
-        interaction.options.getString("emojis")
+        emojiInput
         .split(/\s+/)
-        .filter(Boolean);
+        .filter(Boolean)
+        .slice(0,3);
 
 
 
-        if(emojis.length > 3){
+        if(emojis.length === 0){
 
             return interaction.reply({
 
                 content:
-                "You can only add up to 3 emojis.",
+                "You must provide at least one emoji.",
 
                 ephemeral:true
 
@@ -321,37 +236,15 @@ async execute(interaction){
 
 
 
+        data[name] = {
 
-        const member =
-        await findUser(
-            userInput,
-            interaction.guild
-        );
+            displayName:
+            interaction.options.getString("name"),
 
+            emojis,
 
-
-        if(!member){
-
-            return interaction.reply({
-
-                content:
-                "I could not find that user.",
-
-                ephemeral:true
-
-            });
-
-        }
-
-
-
-
-        data[member.id] = {
-
-            username:
-            member.user.username,
-
-            emojis
+            createdBy:
+            interaction.user.id
 
         };
 
@@ -364,41 +257,26 @@ async execute(interaction){
         return interaction.reply({
 
             content:
-            `Name reactions saved for ${member}.`,
+            `Name reaction created for **${interaction.options.getString("name")}**.\n\nReactions: ${emojis.join(" ")}`,
 
             ephemeral:true
 
         });
 
 
-
     }
-
 
 
 
     if(sub === "remove"){
 
 
-        const userInput =
-        interaction.options.getString("user");
-
-
-
-        const member =
-        await findUser(
-            userInput,
-            interaction.guild
-        );
-
-
-
-        if(!member){
+        if(!data[name]){
 
             return interaction.reply({
 
                 content:
-                "I could not find that user.",
+                "That name reaction does not exist.",
 
                 ephemeral:true
 
@@ -408,7 +286,8 @@ async execute(interaction){
 
 
 
-        delete data[member.id];
+        delete data[name];
+
 
         saveData(data);
 
@@ -417,57 +296,7 @@ async execute(interaction){
         return interaction.reply({
 
             content:
-            `Name reactions removed for ${member}.`,
-
-            ephemeral:true
-
-        });
-
-
-    }
-
-
-
-
-    if(sub === "list"){
-
-
-        const entries =
-        Object.entries(data);
-
-
-
-        if(entries.length === 0){
-
-            return interaction.reply({
-
-                content:
-                "No name reactions have been added.",
-
-                ephemeral:true
-
-            });
-
-        }
-
-
-
-        let text = "";
-
-
-
-        for(const [id,value] of entries){
-
-            text +=
-            `<@${id}> — ${value.emojis.join(" ")}\n`;
-
-        }
-
-
-
-        return interaction.reply({
-
-            content:text,
+            `Removed the name reaction for **${interaction.options.getString("name")}**.`,
 
             ephemeral:true
 
