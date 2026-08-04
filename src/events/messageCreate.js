@@ -1,139 +1,23 @@
-import { Events } from 'discord.js';
+import { Events } from "discord.js";
 import fs from "fs";
 import path from "path";
-import { logger } from '../utils/logger.js';
 
-const nameReactFile = path.join(
-    process.cwd(),
-    "data",
-    "nameReactions.json"
-);
-
-
-function getNameReactions(){
-
-    if(!fs.existsSync(nameReactFile)){
-
-        fs.mkdirSync(
-            path.dirname(nameReactFile),
-            {
-                recursive:true
-            }
-        );
-
-
-        fs.writeFileSync(
-            nameReactFile,
-            "{}"
-        );
-
-    }
-
-
-    return JSON.parse(
-        fs.readFileSync(
-            nameReactFile,
-            "utf8"
-        )
-    );
-
-}
-
-
-
-async function handleNameReact(message){
-
-
-    try{
-
-
-        const reactions =
-        getNameReactions();
-
-
-
-        const content =
-        message.content.toLowerCase();
-
-
-
-        for(const name in reactions){
-
-
-
-            const emojis =
-            reactions[name].emojis || [];
-
-
-
-            if(
-                content.includes(
-                    name.toLowerCase()
-                )
-            ){
-
-
-
-                for(const emoji of emojis){
-
-
-                    await message.react(
-                        emoji
-                    )
-                    .catch(error=>{
-
-                        logger.warn(
-                            `Failed name reaction ${emoji}`,
-                            error
-                        );
-
-                    });
-
-
-                }
-
-
-
-                break;
-
-
-            }
-
-
-        }
-
-
-
-    }catch(error){
-
-
-        logger.error(
-            "Name react error:",
-            error
-        );
-
-
-    }
-
-
-}
-
-import { parsePrefixCommand } from '../utils/prefixParser.js';
+import { logger } from "../utils/logger.js";
+import { parsePrefixCommand } from "../utils/prefixParser.js";
 
 import {
     supportsPrefixExecution,
     executePrefixCommand,
     resolvePrefixAccessKey,
-} from '../utils/messageAdapter.js';
+} from "../utils/messageAdapter.js";
 
 import {
     resolveCommandAlias,
     resolveSubcommandAlias,
-} from '../config/commands/commandAliases.js';
+} from "../config/commands/commandAliases.js";
 
-import { getPrefixRestriction } from '../config/commands/prefixRestrictions.js';
-
-import { getGuildConfig } from '../services/config/guildConfig.js';
+import { getPrefixRestriction } from "../config/commands/prefixRestrictions.js";
+import { getGuildConfig } from "../services/config/guildConfig.js";
 
 import {
     getPrefixCommand,
@@ -141,33 +25,26 @@ import {
     isBotOwner,
     isCommandCategoryEnabled,
     isMaintenanceMode,
-} from '../config/bot.js';
+} from "../config/bot.js";
 
 import {
     enforceAbuseProtection,
     formatCooldownDuration,
-} from '../utils/abuseProtection.js';
+} from "../utils/abuseProtection.js";
 
-import { createEmbed } from '../utils/embeds.js';
-
-import { isCommandEnabled } from '../services/commandAccessService.js';
-
+import { createEmbed } from "../utils/embeds.js";
+import { isCommandEnabled } from "../services/commandAccessService.js";
 
 import {
     getCountingGameConfig,
     saveCountingGameConfig,
     isValidCountingMessage,
     recordCorrectCount,
-} from '../services/countingGameService.js';
+} from "../services/countingGameService.js";
 
 
 
-import fs from "fs";
-import path from "path";
-
-
-
-const nameReactionPath = path.join(
+const nameReactionFile = path.join(
     process.cwd(),
     "data",
     "nameReactions.json"
@@ -177,15 +54,12 @@ const nameReactionPath = path.join(
 
 function loadNameReactions(){
 
-
     try{
 
-
-        if(!fs.existsSync(nameReactionPath)){
-
+        if(!fs.existsSync(nameReactionFile)){
 
             fs.mkdirSync(
-                path.dirname(nameReactionPath),
+                path.dirname(nameReactionFile),
                 {
                     recursive:true
                 }
@@ -193,48 +67,38 @@ function loadNameReactions(){
 
 
             fs.writeFileSync(
-                nameReactionPath,
+                nameReactionFile,
                 "{}"
             );
-
 
         }
 
 
-
         return JSON.parse(
-
             fs.readFileSync(
-                nameReactionPath,
+                nameReactionFile,
                 "utf8"
             )
-
         );
 
 
-
     }catch(error){
-
 
         logger.error(
             "Failed loading name reactions:",
             error
         );
 
-
         return {};
 
     }
-
 
 }
 
 
 
 
-
-
-async function handleNameReactions(message){
+async function handleNameReact(message){
 
 
     try{
@@ -250,86 +114,95 @@ async function handleNameReactions(message){
 
 
 
-
         for(
-            const key in reactions
+            const name in reactions
         ){
 
 
-            const reactionData =
-            reactions[key];
-
-
-
-            if(!reactionData.name) continue;
-
-
-
-            const trigger =
-            reactionData.name.toLowerCase();
-
+            const reaction =
+            reactions[name];
 
 
 
             if(
-                content.includes(trigger)
+                !reaction.emojis ||
+                reaction.emojis.length === 0
             ){
 
-
-
-                const emojis =
-                reactionData.emojis || [];
-
-
-
-
-                for(
-                    const emoji of emojis
-                ){
-
-
-                    await message.react(emoji)
-
-                    .catch(error => {
-
-
-                        logger.error(
-
-                            `Failed reacting with ${emoji}:`,
-
-                            error
-
-                        );
-
-
-                    });
-
-
-                }
-
-
-
-                break;
-
+                continue;
 
             }
 
 
 
+            const words =
+            content.split(/\s+/);
+
+
+
+            if(
+                words.includes(
+                    name.toLowerCase()
+                )
+            ){
+
+
+                for(
+                    const emoji of reaction.emojis
+                ){
+
+                    await message.react(
+                        emoji
+                    )
+                    .catch(error=>{
+
+                        logger.warn(
+                            `Failed reacting with ${emoji}`,
+                            error
+                        );
+
+                    });
+
+                }
+
+
+                break;
+
+            }
+
+
+            if(
+                message.mentions.users.size > 0 &&
+                content.includes(name.toLowerCase())
+            ){
+
+
+                for(
+                    const emoji of reaction.emojis
+                ){
+
+                    await message.react(
+                        emoji
+                    )
+                    .catch(()=>{});
+
+                }
+
+
+                break;
+
+            }
+
+
         }
-
-
 
 
     }catch(error){
 
 
         logger.error(
-
             "Name reaction error:",
-
             error
-
         );
 
 
@@ -342,14 +215,9 @@ async function handleNameReactions(message){
 
 
 
-
 export default {
 
-
-    name:
-
-    Events.MessageCreate,
-
+    name: Events.MessageCreate,
 
 
     async execute(message, client){
@@ -369,21 +237,15 @@ export default {
 
 
 
-logger.debug(
-    `Message received from ${message.author.tag}: ${message.content}`
-);
-
-await handleNameReact(message);
-
-
-
-
-
-            await handleNameReactions(
-                message
+            logger.debug(
+                `Message received from ${message.author.tag}: ${message.content}`
             );
 
 
+
+            await handleNameReact(
+                message
+            );
 
 
 
@@ -403,8 +265,6 @@ await handleNameReact(message);
 
 
 
-
-
             await handlePrefixCommand(
                 message,
                 client
@@ -416,11 +276,8 @@ await handleNameReact(message);
 
 
             logger.error(
-
                 "Error in messageCreate event:",
-
                 error
-
             );
 
 
@@ -431,689 +288,3 @@ await handleNameReact(message);
 
 
 };
-
-async function handlePrefixCommand(message, client){
-
-    try{
-
-
-        const guildConfig =
-        await getGuildConfig(
-            client,
-            message.guild.id
-        );
-
-
-
-        const prefix =
-        getPrefixCommand();
-
-
-
-        const parsed =
-        parsePrefixCommand(
-            message.content,
-            prefix
-        );
-
-
-
-        if(!parsed) return;
-
-
-
-        let {
-            commandName,
-            args
-        } = parsed;
-
-
-
-
-        const shortcut =
-        commandName.toLowerCase();
-
-
-
-        const MUSIC_PREFIX_SHORTCUTS =
-        new Set([
-
-            "leave",
-            "pause",
-            "resume",
-            "skip",
-            "stop",
-            "volume"
-
-        ]);
-
-
-
-
-        if(
-            MUSIC_PREFIX_SHORTCUTS.has(shortcut)
-        ){
-
-
-            commandName = "music";
-
-
-            args = [
-
-                shortcut,
-
-                ...args
-
-            ];
-
-        }
-
-
-
-
-
-        const resolvedCommandName =
-        resolveCommandAlias(
-            commandName
-        );
-
-
-
-        const command =
-        client.commands.get(
-            resolvedCommandName
-        );
-
-
-
-        if(!command){
-
-
-            logger.warn(
-
-                `Command not found: ${resolvedCommandName}`
-
-            );
-
-
-            return;
-
-        }
-
-
-
-
-
-        if(
-
-            isMaintenanceMode()
-
-            &&
-
-            !isBotOwner(
-                message.author.id
-            )
-
-        ){
-
-
-
-            await message.channel.send({
-
-                embeds:[
-
-                    createEmbed({
-
-                        title:
-                        "Maintenance Mode",
-
-
-                        description:
-                        getBotMessage(
-                            "maintenanceMode"
-                        ),
-
-
-                        color:
-                        "warning"
-
-
-                    })
-
-                ]
-
-            });
-
-
-
-            return;
-
-
-        }
-
-
-
-
-
-
-        if(
-
-            !isCommandCategoryEnabled(
-                command.category
-            )
-
-        ){
-
-
-            return;
-
-
-        }
-
-
-
-
-
-
-        const restriction =
-
-        getPrefixRestriction(
-
-            command,
-
-            args,
-
-            resolveSubcommandAlias
-
-        );
-
-
-
-
-
-        if(
-
-            !supportsPrefixExecution(command)
-
-            ||
-
-            restriction.blocked
-
-        ){
-
-
-            return;
-
-
-        }
-
-
-
-
-
-
-        const enabled =
-
-        await isCommandEnabled(
-
-            client,
-
-            message.guild.id,
-
-
-            resolvePrefixAccessKey(
-
-                command.data,
-
-                args
-
-            ),
-
-
-            command.category
-
-        );
-
-
-
-
-
-        if(!enabled){
-
-
-            return;
-
-
-        }
-
-
-
-
-
-
-        const protection =
-
-        await enforceAbuseProtection(
-
-            {
-
-                guildId:
-                message.guild.id,
-
-
-                user:
-                message.author
-
-
-            },
-
-
-            command,
-
-
-            resolvedCommandName
-
-
-        );
-
-
-
-
-
-        if(!protection.allowed){
-
-
-
-            await message.channel.send({
-
-                embeds:[
-
-                    createEmbed({
-
-                        title:
-                        "Command Cooldown",
-
-
-                        description:
-
-                        `Please wait ${formatCooldownDuration(protection.remainingMs)}.`,
-
-
-
-                        color:
-                        "error"
-
-
-                    })
-
-                ]
-
-            });
-
-
-
-            return;
-
-
-        }
-
-
-
-
-
-
-        logger.info(
-
-            `Executing prefix command ${prefix}${commandName} by ${message.author.tag}`
-
-        );
-
-
-
-
-
-        await executePrefixCommand(
-
-            command,
-
-            message,
-
-            args,
-
-            client,
-
-            prefix,
-
-            guildConfig
-
-        );
-
-
-
-
-
-    }catch(error){
-
-
-
-        logger.error(
-
-            "Error handling prefix command:",
-
-            error
-
-        );
-
-
-
-    }
-
-
-}
-
-
-
-
-
-
-
-async function handleCountingGame(message, client){
-
-
-    try{
-
-
-        const config =
-
-        await getCountingGameConfig(
-
-            client,
-
-            message.guild.id
-
-        );
-
-
-
-
-
-        if(
-
-            !config.enabled
-
-            ||
-
-            !config.channelId
-
-            ||
-
-            message.channel.id !== config.channelId
-
-        ){
-
-
-            return false;
-
-
-        }
-
-
-
-
-
-
-        const content =
-
-        message.content.trim();
-
-
-
-
-
-        const validCount =
-
-        isValidCountingMessage(
-
-            content,
-
-            config
-
-        );
-
-
-
-
-
-        const invalidAttempt =
-
-        !validCount
-
-        ||
-
-        message.author.id === config.lastUserId;
-
-
-
-
-
-        if(invalidAttempt){
-
-
-
-            await message.delete()
-
-            .catch(()=>{});
-
-
-
-
-
-            await saveCountingGameConfig(
-
-                client,
-
-                message.guild.id,
-
-                {
-
-                    ...config,
-
-                    nextNumber:1,
-
-                    lastUserId:null,
-
-                    currentStreak:0
-
-                }
-
-            );
-
-
-
-
-
-
-            const resetMessage =
-
-            await message.channel.send(
-
-                `Count broken by <@${message.author.id}>. The sequence has been reset to **1**.`
-
-            );
-
-
-
-
-
-            setTimeout(()=>{
-
-
-                resetMessage.delete()
-
-                .catch(()=>{});
-
-
-            },10000);
-
-
-
-
-
-            return true;
-
-
-        }
-
-
-
-
-
-
-        await recordCorrectCount(
-
-            client,
-
-            message.guild.id,
-
-            message.author.id
-
-        );
-
-
-
-
-
-        return true;
-
-
-
-
-    }catch(error){
-
-
-
-        logger.error(
-
-            "Error handling counting game:",
-
-            error
-
-        );
-
-
-
-        return false;
-
-
-    }
-
-
-}
-
-async function handleCountingGame(message, client){
-
-    try{
-
-        const config =
-        await getCountingGameConfig(
-            client,
-            message.guild.id
-        );
-
-
-        if(
-            !config.enabled ||
-            !config.channelId ||
-            message.channel.id !== config.channelId
-        ){
-
-            return false;
-
-        }
-
-
-        const content =
-        message.content.trim();
-
-
-        const validCount =
-        isValidCountingMessage(
-            content,
-            config
-        );
-
-
-        const invalidAttempt =
-        !validCount ||
-        message.author.id === config.lastUserId;
-
-
-
-        if(invalidAttempt){
-
-
-            await message.delete()
-            .catch(()=>{});
-
-
-
-            await saveCountingGameConfig(
-                client,
-                message.guild.id,
-                {
-                    ...config,
-                    nextNumber: 1,
-                    lastUserId: null,
-                    currentStreak: 0,
-                }
-            );
-
-
-
-            const resetMessage =
-            await message.channel.send(
-                `Count broken by <@${message.author.id}>. The sequence has been reset to **1**.`
-            );
-
-
-
-            setTimeout(()=>{
-
-                resetMessage.delete()
-                .catch(()=>{});
-
-            },10000);
-
-
-
-            return true;
-
-        }
-
-
-
-        await recordCorrectCount(
-            client,
-            message.guild.id,
-            message.author.id
-        );
-
-
-
-        return true;
-
-
-    }catch(error){
-
-
-        logger.error(
-            "Error handling counting game:",
-            error
-        );
-
-
-        return false;
-
-    }
-
-}
