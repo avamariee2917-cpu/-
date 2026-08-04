@@ -1,5 +1,7 @@
 import { Events } from 'discord.js';
+
 import { logger } from '../utils/logger.js';
+
 import { parsePrefixCommand } from '../utils/prefixParser.js';
 
 import {
@@ -14,6 +16,7 @@ import {
 } from '../config/commands/commandAliases.js';
 
 import { getPrefixRestriction } from '../config/commands/prefixRestrictions.js';
+
 import { getGuildConfig } from '../services/config/guildConfig.js';
 
 import {
@@ -30,6 +33,7 @@ import {
 } from '../utils/abuseProtection.js';
 
 import { createEmbed } from '../utils/embeds.js';
+
 import { isCommandEnabled } from '../services/commandAccessService.js';
 
 
@@ -41,12 +45,13 @@ import {
 } from '../services/countingGameService.js';
 
 
+
 import fs from "fs";
 import path from "path";
 
 
 
-const nameReactFile = path.join(
+const nameReactionPath = path.join(
     process.cwd(),
     "data",
     "nameReactions.json"
@@ -54,32 +59,57 @@ const nameReactFile = path.join(
 
 
 
-function getNameReactions(){
+function loadNameReactions(){
 
-    if(!fs.existsSync(nameReactFile)){
 
-        fs.mkdirSync(
-            path.dirname(nameReactFile),
-            {
-                recursive:true
-            }
+    try{
+
+
+        if(!fs.existsSync(nameReactionPath)){
+
+
+            fs.mkdirSync(
+                path.dirname(nameReactionPath),
+                {
+                    recursive:true
+                }
+            );
+
+
+            fs.writeFileSync(
+                nameReactionPath,
+                "{}"
+            );
+
+
+        }
+
+
+
+        return JSON.parse(
+
+            fs.readFileSync(
+                nameReactionPath,
+                "utf8"
+            )
+
         );
 
 
-        fs.writeFileSync(
-            nameReactFile,
-            "{}"
+
+    }catch(error){
+
+
+        logger.error(
+            "Failed loading name reactions:",
+            error
         );
+
+
+        return {};
 
     }
 
-
-    return JSON.parse(
-        fs.readFileSync(
-            nameReactFile,
-            "utf8"
-        )
-    );
 
 }
 
@@ -87,13 +117,15 @@ function getNameReactions(){
 
 
 
+
 async function handleNameReactions(message){
+
 
     try{
 
 
         const reactions =
-        getNameReactions();
+        loadNameReactions();
 
 
 
@@ -102,13 +134,24 @@ async function handleNameReactions(message){
 
 
 
+
         for(
             const key in reactions
         ){
 
 
+            const reactionData =
+            reactions[key];
+
+
+
+            if(!reactionData.name) continue;
+
+
+
             const trigger =
-            key.toLowerCase();
+            reactionData.name.toLowerCase();
+
 
 
 
@@ -117,8 +160,10 @@ async function handleNameReactions(message){
             ){
 
 
+
                 const emojis =
-                reactions[key].emojis || [];
+                reactionData.emojis || [];
+
 
 
 
@@ -126,30 +171,54 @@ async function handleNameReactions(message){
                     const emoji of emojis
                 ){
 
-                    await message.react(
-                        emoji
-                    )
-                    .catch(()=>{});
+
+                    await message.react(emoji)
+
+                    .catch(error => {
+
+
+                        logger.error(
+
+                            `Failed reacting with ${emoji}:`,
+
+                            error
+
+                        );
+
+
+                    });
+
 
                 }
 
 
+
                 break;
 
+
             }
+
 
 
         }
 
 
+
+
     }catch(error){
 
+
         logger.error(
+
             "Name reaction error:",
+
             error
+
         );
 
+
     }
+
 
 }
 
@@ -160,10 +229,15 @@ async function handleNameReactions(message){
 
 export default {
 
-    name: Events.MessageCreate,
+
+    name:
+
+    Events.MessageCreate,
+
 
 
     async execute(message, client){
+
 
         try{
 
@@ -180,16 +254,20 @@ export default {
 
 
             logger.debug(
+
                 `Message received from ${message.author.tag}: ${message.content}`
+
             );
 
 
 
-            // CUSTOM NAME REACTIONS
+
 
             await handleNameReactions(
                 message
             );
+
+
 
 
 
@@ -209,6 +287,8 @@ export default {
 
 
 
+
+
             await handlePrefixCommand(
                 message,
                 client
@@ -220,15 +300,18 @@ export default {
 
 
             logger.error(
+
                 "Error in messageCreate event:",
+
                 error
+
             );
 
 
         }
 
 
-    },
+    }
 
 
 };
@@ -259,11 +342,7 @@ async function handlePrefixCommand(message, client){
 
 
 
-        if(!parsed){
-
-            return;
-
-        }
+        if(!parsed) return;
 
 
 
@@ -275,7 +354,7 @@ async function handlePrefixCommand(message, client){
 
 
 
-        const musicShortcut =
+        const shortcut =
         commandName.toLowerCase();
 
 
@@ -294,10 +373,9 @@ async function handlePrefixCommand(message, client){
 
 
 
+
         if(
-            MUSIC_PREFIX_SHORTCUTS.has(
-                musicShortcut
-            )
+            MUSIC_PREFIX_SHORTCUTS.has(shortcut)
         ){
 
 
@@ -306,13 +384,14 @@ async function handlePrefixCommand(message, client){
 
             args = [
 
-                musicShortcut,
+                shortcut,
+
                 ...args
 
             ];
 
-
         }
+
 
 
 
@@ -333,9 +412,13 @@ async function handlePrefixCommand(message, client){
 
         if(!command){
 
+
             logger.warn(
+
                 `Command not found: ${resolvedCommandName}`
+
             );
+
 
             return;
 
@@ -346,12 +429,17 @@ async function handlePrefixCommand(message, client){
 
 
         if(
+
             isMaintenanceMode()
+
             &&
+
             !isBotOwner(
                 message.author.id
             )
+
         ){
+
 
 
             await message.channel.send({
@@ -360,14 +448,19 @@ async function handlePrefixCommand(message, client){
 
                     createEmbed({
 
-                        title:"Maintenance Mode",
+                        title:
+                        "Maintenance Mode",
+
 
                         description:
                         getBotMessage(
                             "maintenanceMode"
                         ),
 
-                        color:"warning"
+
+                        color:
+                        "warning"
+
 
                     })
 
@@ -376,21 +469,28 @@ async function handlePrefixCommand(message, client){
             });
 
 
+
             return;
 
+
         }
+
 
 
 
 
 
         if(
+
             !isCommandCategoryEnabled(
                 command.category
             )
+
         ){
 
+
             return;
+
 
         }
 
@@ -398,7 +498,9 @@ async function handlePrefixCommand(message, client){
 
 
 
+
         const restriction =
+
         getPrefixRestriction(
 
             command,
@@ -412,13 +514,20 @@ async function handlePrefixCommand(message, client){
 
 
 
+
         if(
+
             !supportsPrefixExecution(command)
+
             ||
+
             restriction.blocked
+
         ){
 
+
             return;
+
 
         }
 
@@ -428,11 +537,13 @@ async function handlePrefixCommand(message, client){
 
 
         const enabled =
+
         await isCommandEnabled(
 
             client,
 
             message.guild.id,
+
 
             resolvePrefixAccessKey(
 
@@ -442,15 +553,20 @@ async function handlePrefixCommand(message, client){
 
             ),
 
+
             command.category
 
         );
 
 
 
+
+
         if(!enabled){
 
+
             return;
+
 
         }
 
@@ -460,6 +576,7 @@ async function handlePrefixCommand(message, client){
 
 
         const protection =
+
         await enforceAbuseProtection(
 
             {
@@ -471,6 +588,7 @@ async function handlePrefixCommand(message, client){
                 user:
                 message.author
 
+
             },
 
 
@@ -479,7 +597,9 @@ async function handlePrefixCommand(message, client){
 
             resolvedCommandName
 
+
         );
+
 
 
 
@@ -499,9 +619,13 @@ async function handlePrefixCommand(message, client){
 
 
                         description:
+
                         `Please wait ${formatCooldownDuration(protection.remainingMs)}.`,
 
-                        color:"error"
+
+
+                        color:
+                        "error"
 
 
                     })
@@ -522,14 +646,11 @@ async function handlePrefixCommand(message, client){
 
 
 
-
         logger.info(
 
             `Executing prefix command ${prefix}${commandName} by ${message.author.tag}`
 
         );
-
-
 
 
 
@@ -554,7 +675,9 @@ async function handlePrefixCommand(message, client){
 
 
 
+
     }catch(error){
+
 
 
         logger.error(
@@ -566,11 +689,11 @@ async function handlePrefixCommand(message, client){
         );
 
 
+
     }
 
 
 }
-
 
 
 
@@ -585,6 +708,7 @@ async function handleCountingGame(message, client){
 
 
         const config =
+
         await getCountingGameConfig(
 
             client,
@@ -596,17 +720,24 @@ async function handleCountingGame(message, client){
 
 
 
+
         if(
 
-            !config.enabled ||
+            !config.enabled
 
-            !config.channelId ||
+            ||
+
+            !config.channelId
+
+            ||
 
             message.channel.id !== config.channelId
 
         ){
 
+
             return false;
+
 
         }
 
@@ -616,6 +747,7 @@ async function handleCountingGame(message, client){
 
 
         const content =
+
         message.content.trim();
 
 
@@ -623,6 +755,7 @@ async function handleCountingGame(message, client){
 
 
         const validCount =
+
         isValidCountingMessage(
 
             content,
@@ -637,11 +770,11 @@ async function handleCountingGame(message, client){
 
         const invalidAttempt =
 
-            !validCount ||
+        !validCount
 
-            message.author.id === config.lastUserId;
+        ||
 
-
+        message.author.id === config.lastUserId;
 
 
 
@@ -696,7 +829,6 @@ async function handleCountingGame(message, client){
 
 
 
-
             setTimeout(()=>{
 
 
@@ -711,12 +843,10 @@ async function handleCountingGame(message, client){
 
 
 
-
             return true;
 
 
         }
-
 
 
 
@@ -745,6 +875,7 @@ async function handleCountingGame(message, client){
     }catch(error){
 
 
+
         logger.error(
 
             "Error handling counting game:",
@@ -760,5 +891,113 @@ async function handleCountingGame(message, client){
 
     }
 
+
+}
+
+async function handleCountingGame(message, client){
+
+    try{
+
+        const config =
+        await getCountingGameConfig(
+            client,
+            message.guild.id
+        );
+
+
+        if(
+            !config.enabled ||
+            !config.channelId ||
+            message.channel.id !== config.channelId
+        ){
+
+            return false;
+
+        }
+
+
+        const content =
+        message.content.trim();
+
+
+        const validCount =
+        isValidCountingMessage(
+            content,
+            config
+        );
+
+
+        const invalidAttempt =
+        !validCount ||
+        message.author.id === config.lastUserId;
+
+
+
+        if(invalidAttempt){
+
+
+            await message.delete()
+            .catch(()=>{});
+
+
+
+            await saveCountingGameConfig(
+                client,
+                message.guild.id,
+                {
+                    ...config,
+                    nextNumber: 1,
+                    lastUserId: null,
+                    currentStreak: 0,
+                }
+            );
+
+
+
+            const resetMessage =
+            await message.channel.send(
+                `Count broken by <@${message.author.id}>. The sequence has been reset to **1**.`
+            );
+
+
+
+            setTimeout(()=>{
+
+                resetMessage.delete()
+                .catch(()=>{});
+
+            },10000);
+
+
+
+            return true;
+
+        }
+
+
+
+        await recordCorrectCount(
+            client,
+            message.guild.id,
+            message.author.id
+        );
+
+
+
+        return true;
+
+
+    }catch(error){
+
+
+        logger.error(
+            "Error handling counting game:",
+            error
+        );
+
+
+        return false;
+
+    }
 
 }
