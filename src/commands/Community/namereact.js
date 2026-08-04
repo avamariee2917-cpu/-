@@ -19,7 +19,7 @@ const filePath = path.join(
 
 
 
-function getData(){
+function loadReactions(){
 
     if(!fs.existsSync(filePath)){
 
@@ -48,7 +48,7 @@ function getData(){
 
 
 
-function saveData(data){
+function saveReactions(data){
 
     fs.writeFileSync(
         filePath,
@@ -63,170 +63,128 @@ function saveData(data){
 
 
 
-function hasAccess(member){
+function canUseCommand(member){
 
     return (
+
         member.roles.cache.has(STAFF_ROLE_ID)
+
         ||
+
         member.roles.cache.has(OWNER_ROLE_ID)
+
         ||
+
         member.permissions.has(
             PermissionFlagsBits.Administrator
         )
+
     );
 
 }
 
 
 
-
 export default {
 
+    data:
 
-data:
+    new SlashCommandBuilder()
 
-new SlashCommandBuilder()
-
-.setName("namereact")
-
-.setDescription(
-    "Manage custom name reactions"
-)
-
-
-.addSubcommand(sub =>
-
-    sub
-
-    .setName("set")
+    .setName("namereact")
 
     .setDescription(
-        "Create or update a name reaction"
+        "Manage custom name reactions"
     )
 
 
-    .addStringOption(option =>
+    .addSubcommand(sub =>
 
-        option
+        sub
 
-        .setName("name")
+        .setName("set")
 
         .setDescription(
-            "The custom name to react to"
+            "Create a custom name reaction"
         )
 
-        .setRequired(true)
+
+        .addStringOption(option =>
+
+            option
+
+            .setName("name")
+
+            .setDescription(
+                "The word/name that triggers reactions"
+            )
+
+            .setRequired(true)
+
+        )
+
+
+        .addStringOption(option =>
+
+            option
+
+            .setName("emojis")
+
+            .setDescription(
+                "Maximum 3 emojis separated by spaces"
+            )
+
+            .setRequired(true)
+
+        )
 
     )
 
 
-    .addStringOption(option =>
 
-        option
+    .addSubcommand(sub =>
 
-        .setName("emojis")
+        sub
+
+        .setName("remove")
 
         .setDescription(
-            "Up to 3 emojis separated by spaces"
+            "Remove a name reaction"
         )
 
-        .setRequired(true)
 
-    )
+        .addStringOption(option =>
 
-)
+            option
 
+            .setName("name")
 
+            .setDescription(
+                "Name reaction to remove"
+            )
 
-.addSubcommand(sub =>
+            .setRequired(true)
 
-    sub
-
-    .setName("remove")
-
-    .setDescription(
-        "Remove a name reaction"
-    )
-
-
-    .addStringOption(option =>
-
-        option
-
-        .setName("name")
-
-        .setDescription(
-            "Name reaction to remove"
         )
 
-        .setRequired(true)
-
-    )
-
-),
+    ),
 
 
 
-category:"community",
+    category:"community",
 
 
 
-async execute(interaction){
+    async execute(interaction){
 
 
-    if(!hasAccess(interaction.member)){
+        if(!canUseCommand(interaction.member)){
 
-        return interaction.reply({
-
-            content:
-            "You do not have permission to use this command.",
-
-            ephemeral:true
-
-        });
-
-    }
-
-
-
-    const data = getData();
-
-
-
-    const sub =
-    interaction.options.getSubcommand();
-
-
-
-    const name =
-    interaction.options.getString("name")
-    .trim()
-    .toLowerCase();
-
-
-
-    if(sub === "set"){
-
-
-        const emojiInput =
-        interaction.options.getString("emojis");
-
-
-
-        const emojis =
-        emojiInput
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0,3);
-
-
-
-        if(emojis.length === 0){
 
             return interaction.reply({
 
                 content:
-                "You must provide at least one emoji.",
+                "You do not have permission to use this command.",
 
                 ephemeral:true
 
@@ -236,77 +194,143 @@ async execute(interaction){
 
 
 
-        data[name] = {
-
-            displayName:
-            interaction.options.getString("name"),
-
-            emojis,
-
-            createdBy:
-            interaction.user.id
-
-        };
+        const data =
+        loadReactions();
 
 
 
-        saveData(data);
+        const action =
+        interaction.options.getSubcommand();
 
 
 
-        return interaction.reply({
-
-            content:
-            `Name reaction created for **${interaction.options.getString("name")}**.\n\nReactions: ${emojis.join(" ")}`,
-
-            ephemeral:true
-
-        });
-
-
-    }
+        const name =
+        interaction.options
+        .getString("name")
+        .trim();
 
 
 
-    if(sub === "remove"){
+        const key =
+        name.toLowerCase();
 
 
-        if(!data[name]){
+
+        if(action === "set"){
+
+
+            const emojiInput =
+            interaction.options
+            .getString("emojis");
+
+
+
+            const emojis =
+            emojiInput
+
+            .split(/\s+/)
+
+            .filter(Boolean)
+
+            .slice(0,3);
+
+
+
+            if(emojis.length === 0){
+
+
+                return interaction.reply({
+
+                    content:
+                    "You need to provide emojis.",
+
+                    ephemeral:true
+
+                });
+
+
+            }
+
+
+
+            data[key] = {
+
+
+                name:name,
+
+
+                emojis:emojis,
+
+
+                createdBy:
+                interaction.user.id
+
+
+            };
+
+
+
+            saveReactions(data);
+
+
 
             return interaction.reply({
 
                 content:
-                "That name reaction does not exist.",
+
+                `Created name reaction for **${name}**.\nReactions: ${emojis.join(" ")}`,
 
                 ephemeral:true
 
             });
 
+
         }
 
 
 
-        delete data[name];
+
+        if(action === "remove"){
 
 
-        saveData(data);
+            if(!data[key]){
+
+
+                return interaction.reply({
+
+                    content:
+                    "That name reaction does not exist.",
+
+                    ephemeral:true
+
+                });
+
+
+            }
 
 
 
-        return interaction.reply({
+            delete data[key];
 
-            content:
-            `Removed the name reaction for **${interaction.options.getString("name")}**.`,
 
-            ephemeral:true
+            saveReactions(data);
 
-        });
+
+
+            return interaction.reply({
+
+                content:
+                `Removed name reaction for **${name}**.`,
+
+                ephemeral:true
+
+            });
+
+
+        }
 
 
     }
-
-
-}
 
 
 };
