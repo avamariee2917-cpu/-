@@ -369,12 +369,11 @@ export default {
 
 
 
-            logger.debug(
+logger.debug(
+    `Message received from ${message.author.tag}: ${message.content}`
+);
 
-                `Message received from ${message.author.tag}: ${message.content}`
-
-                await handleNameReact(message);
-            );
+await handleNameReact(message);
 
 
 
