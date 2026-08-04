@@ -1,17 +1,21 @@
 import { Events } from 'discord.js';
 import { logger } from '../utils/logger.js';
 import { parsePrefixCommand } from '../utils/prefixParser.js';
+
 import {
   supportsPrefixExecution,
   executePrefixCommand,
   resolvePrefixAccessKey,
 } from '../utils/messageAdapter.js';
+
 import {
   resolveCommandAlias,
   resolveSubcommandAlias,
 } from '../config/commands/commandAliases.js';
+
 import { getPrefixRestriction } from '../config/commands/prefixRestrictions.js';
 import { getGuildConfig } from '../services/config/guildConfig.js';
+
 import {
   getPrefixCommand,
   getBotMessage,
@@ -19,15 +23,15 @@ import {
   isCommandCategoryEnabled,
   isMaintenanceMode,
 } from '../config/bot.js';
+
 import {
   enforceAbuseProtection,
   formatCooldownDuration,
 } from '../utils/abuseProtection.js';
+
 import { createEmbed } from '../utils/embeds.js';
 import { isCommandEnabled } from '../services/commandAccessService.js';
 
-import fs from "fs";
-import path from "path";
 
 import {
   getCountingGameConfig,
@@ -37,17 +41,165 @@ import {
 } from '../services/countingGameService.js';
 
 
+import fs from "fs";
+import path from "path";
+
+
+
+const nameReactFile = path.join(
+  process.cwd(),
+  "data",
+  "nameReacts.json"
+);
+
+
+
+function getNameReacts(){
+
+  if(!fs.existsSync(nameReactFile)){
+
+    fs.mkdirSync(
+      path.dirname(nameReactFile),
+      {recursive:true}
+    );
+
+
+    fs.writeFileSync(
+      nameReactFile,
+      "{}"
+    );
+
+  }
+
+
+  return JSON.parse(
+    fs.readFileSync(
+      nameReactFile,
+      "utf8"
+    )
+  );
+
+}
+
+
+
+async function handleNameReact(message){
+
+
+  try{
+
+
+    const data =
+    getNameReacts();
+
+
+
+    for(
+      const userId in data
+    ){
+
+
+      const member =
+      await message.guild.members.fetch(
+        userId
+      ).catch(()=>null);
+
+
+
+      if(!member) continue;
+
+
+
+      const username =
+      member.user.username.toLowerCase();
+
+
+      const display =
+      member.displayName.toLowerCase();
+
+
+
+      const content =
+      message.content.toLowerCase();
+
+
+
+      const mentioned =
+      message.mentions.users.has(
+        userId
+      );
+
+
+
+      const saidName =
+      content.includes(username)
+      ||
+      content.includes(display);
+
+
+
+      if(
+        mentioned ||
+        saidName
+      ){
+
+
+        const emojis =
+        data[userId].emojis || [];
+
+
+
+        for(
+          const emoji of emojis
+        ){
+
+          await message.react(
+            emoji
+          ).catch(()=>{});
+
+        }
+
+
+
+        break;
+
+      }
+
+    }
+
+
+  }catch(error){
+
+    logger.error(
+      "Name react error:",
+      error
+    );
+
+  }
+
+
+}
+
+
+
+
 
 export default {
+
   name: Events.MessageCreate,
 
-  async execute(message, client) {
-    try {
 
-      if (message.author.bot || !message.guild) return;
+  async execute(message, client){
 
 
-      await handleNameReacts(message);
+    try{
+
+
+      if(
+        message.author.bot ||
+        !message.guild
+      ) return;
+
 
 
       logger.debug(
@@ -55,49 +207,90 @@ export default {
       );
 
 
-      const countingProcessed = await handleCountingGame(message, client);
 
-      if (countingProcessed) {
+      // NAME REACT SYSTEM
+
+      await handleNameReact(
+        message
+      );
+
+
+
+
+
+      const countingProcessed =
+      await handleCountingGame(
+        message,
+        client
+      );
+
+
+
+      if(countingProcessed){
+
         return;
+
       }
 
 
-      await handlePrefixCommand(message, client);
+
+      await handlePrefixCommand(
+        message,
+        client
+      );
 
 
-    } catch (error) {
+
+    }catch(error){
+
 
       logger.error(
-        'Error in messageCreate event:',
+        "Error in messageCreate event:",
         error
       );
 
+
     }
+
+
   },
+
+
 };
 
 
 
-async function handlePrefixCommand(message, client) {
 
-  try {
 
-    const guildConfig = await getGuildConfig(
+
+async function handlePrefixCommand(message, client){
+
+  try{
+
+
+    const guildConfig =
+    await getGuildConfig(
       client,
       message.guild.id
     );
 
 
-    const prefix = getPrefixCommand();
+
+    const prefix =
+    getPrefixCommand();
 
 
-    const parsed = parsePrefixCommand(
+
+    const parsed =
+    parsePrefixCommand(
       message.content,
       prefix
     );
 
 
-    if (!parsed) return;
+
+    if(!parsed) return;
+
 
 
     let {
@@ -108,24 +301,29 @@ async function handlePrefixCommand(message, client) {
 
 
     const musicShortcut =
-      commandName.toLowerCase();
+    commandName.toLowerCase();
 
 
 
-    const MUSIC_PREFIX_SHORTCUTS = new Set([
-      'leave',
-      'pause',
-      'resume',
-      'skip',
-      'stop',
-      'volume',
+    const MUSIC_PREFIX_SHORTCUTS =
+    new Set([
+      "leave",
+      "pause",
+      "resume",
+      "skip",
+      "stop",
+      "volume",
     ]);
 
 
 
-    if (MUSIC_PREFIX_SHORTCUTS.has(musicShortcut)) {
+    if(
+      MUSIC_PREFIX_SHORTCUTS.has(
+        musicShortcut
+      )
+    ){
 
-      commandName = 'music';
+      commandName = "music";
 
       args = [
         musicShortcut,
@@ -136,17 +334,23 @@ async function handlePrefixCommand(message, client) {
 
 
 
+
+
     const resolvedCommandName =
-      resolveCommandAlias(commandName);
+    resolveCommandAlias(
+      commandName
+    );
 
 
 
     const command =
-      client.commands.get(resolvedCommandName);
+    client.commands.get(
+      resolvedCommandName
+    );
 
 
 
-    if (!command) {
+    if(!command){
 
       logger.warn(
         `Command not found: ${resolvedCommandName}`
@@ -155,27 +359,37 @@ async function handlePrefixCommand(message, client) {
       return;
 
     }
-        if (
-      isMaintenanceMode() &&
-      !isBotOwner(message.author.id)
-    ) {
+
+
+
+
+
+    if(
+      isMaintenanceMode()
+      &&
+      !isBotOwner(
+        message.author.id
+      )
+    ){
 
       await message.channel.send({
 
-        embeds: [
+        embeds:[
 
           createEmbed({
 
-            title: 'Maintenance Mode',
+            title:"Maintenance Mode",
 
             description:
-              getBotMessage('maintenanceMode'),
+            getBotMessage(
+              "maintenanceMode"
+            ),
 
-            color: 'warning',
+            color:"warning"
 
-          }),
+          })
 
-        ],
+        ]
 
       });
 
@@ -187,30 +401,12 @@ async function handlePrefixCommand(message, client) {
 
 
 
-    if (
-      !isCommandCategoryEnabled(command.category)
-    ) {
 
-
-      await message.channel.send({
-
-        embeds: [
-
-          createEmbed({
-
-            title: 'Feature Disabled',
-
-            description:
-              getBotMessage('commandDisabled'),
-
-            color: 'error',
-
-          }),
-
-        ],
-
-      });
-
+    if(
+      !isCommandCategoryEnabled(
+        command.category
+      )
+    ){
 
       return;
 
@@ -220,49 +416,19 @@ async function handlePrefixCommand(message, client) {
 
 
     const restriction =
-      getPrefixRestriction(
-        command,
-        args,
-        resolveSubcommandAlias
-      );
+    getPrefixRestriction(
+      command,
+      args,
+      resolveSubcommandAlias
+    );
 
 
 
-    if (
-      !supportsPrefixExecution(command) ||
+    if(
+      !supportsPrefixExecution(command)
+      ||
       restriction.blocked
-    ) {
-
-
-
-      if (
-        restriction.blocked &&
-        restriction.reason
-      ) {
-
-
-        await message.channel.send({
-
-          embeds: [
-
-            createEmbed({
-
-              title: 'Slash Command Only',
-
-              description:
-                `${restriction.reason}\nUse \`/${resolvedCommandName}\` instead.`,
-
-              color: 'info',
-
-            }),
-
-          ],
-
-        });
-
-
-      }
-
+    ){
 
       return;
 
@@ -273,95 +439,69 @@ async function handlePrefixCommand(message, client) {
 
 
     const enabled =
-      await isCommandEnabled(
+    await isCommandEnabled(
 
-        client,
+      client,
 
-        message.guild.id,
+      message.guild.id,
 
-        resolvePrefixAccessKey(
-          command.data,
-          args
-        ),
+      resolvePrefixAccessKey(
+        command.data,
+        args
+      ),
 
-        command.category
+      command.category
 
-      );
-
-
-
-    if (!enabled) {
+    );
 
 
-      await message.channel.send({
 
-        embeds: [
-
-          createEmbed({
-
-            title: 'Command Disabled',
-
-            description:
-              'This command has been disabled for this server.',
-
-            color: 'error',
-
-          }),
-
-        ],
-
-      });
-
-
-      return;
-
-    }
+    if(!enabled) return;
 
 
 
 
 
     const protection =
-      await enforceAbuseProtection(
+    await enforceAbuseProtection(
 
-        {
+      {
 
-          guildId:
-            message.guild.id,
+        guildId:
+        message.guild.id,
 
-          user:
-            message.author,
+        user:
+        message.author
 
-        },
+      },
 
-        command,
+      command,
 
-        resolvedCommandName
+      resolvedCommandName
 
-      );
-
-
+    );
 
 
-    if (!protection.allowed) {
+
+    if(!protection.allowed){
 
 
       await message.channel.send({
 
-        embeds: [
+        embeds:[
 
           createEmbed({
 
-            title: 'Command Cooldown',
+            title:"Command Cooldown",
 
             description:
-              `Please wait ${formatCooldownDuration(protection.remainingMs)} before trying again.`,
+            `Please wait ${formatCooldownDuration(protection.remainingMs)}.`,
 
-            color: 'error',
+            color:"error"
 
-          }),
+          })
 
-        ],
+        ]
 
       });
 
@@ -370,15 +510,6 @@ async function handlePrefixCommand(message, client) {
 
     }
 
-
-
-
-
-    logger.info(
-
-      `Executing prefix command ${prefix}${commandName} by ${message.author.tag}`
-
-    );
 
 
 
@@ -401,19 +532,17 @@ async function handlePrefixCommand(message, client) {
 
 
 
-
-  } catch(error) {
+  }catch(error){
 
 
     logger.error(
-
-      'Error handling prefix command:',
-
+      "Error handling prefix command:",
       error
-
     );
 
+
   }
+
 
 }
 
@@ -421,170 +550,104 @@ async function handlePrefixCommand(message, client) {
 
 
 
-async function handleCountingGame(message, client) {
 
 
-  try {
 
+async function handleCountingGame(message, client){
 
-    const config =
-      await getCountingGameConfig(
 
-        client,
+try{
 
-        message.guild.id
 
-      );
+const config =
+await getCountingGameConfig(
+client,
+message.guild.id
+);
 
 
 
-    if (
+if(
+!config.enabled ||
+!config.channelId ||
+message.channel.id !== config.channelId
+){
 
-      !config.enabled ||
+return false;
 
-      !config.channelId ||
+}
 
-      message.channel.id !== config.channelId
 
-    ) {
 
-      return false;
+const content =
+message.content.trim();
 
-    }
 
 
+const validCount =
+isValidCountingMessage(
+content,
+config
+);
 
 
-    const content =
-      message.content.trim();
 
+const invalidAttempt =
+!validCount ||
+message.author.id === config.lastUserId;
 
 
 
-    const validCount =
-      isValidCountingMessage(
+if(invalidAttempt){
 
-        content,
 
-        config
+await message.delete()
+.catch(()=>{});
 
-      );
 
 
+await saveCountingGameConfig(
 
+client,
 
-    const invalidAttempt =
+message.guild.id,
 
-      !validCount ||
+{
 
-      message.author.id === config.lastUserId;
+...config,
 
+nextNumber:1,
 
+lastUserId:null,
 
+currentStreak:0,
 
-    if (invalidAttempt) {
+}
 
+);
 
 
-      await message.delete()
 
-        .catch(() => {});
+const reset =
+await message.channel.send(
 
+`Count broken by <@${message.author.id}>. The sequence has been reset to **1**.`
 
+);
 
 
-      await saveCountingGameConfig(
 
-        client,
+setTimeout(()=>{
 
-        message.guild.id,
+reset.delete()
+.catch(()=>{});
 
-        {
+},10000);
 
-          ...config,
 
-          nextNumber: 1,
 
-          lastUserId: null,
+return true;
 
-          currentStreak: 0,
-
-        }
-
-      );
-
-
-
-
-
-      const resetMessage =
-
-        await message.channel.send(
-
-          `Count broken by <@${message.author.id}>. The sequence has been reset to **1**.`
-
-        );
-
-
-
-
-
-      setTimeout(() => {
-
-
-        resetMessage.delete()
-
-          .catch(() => {});
-
-
-      }, 10000);
-
-
-
-
-      return true;
-
-
-    }
-
-
-
-
-
-    await recordCorrectCount(
-
-      client,
-
-      message.guild.id,
-
-      message.author.id
-
-    );
-
-
-
-
-    return true;
-
-
-
-
-  } catch(error) {
-
-
-    logger.error(
-
-      'Error handling counting game:',
-
-      error
-
-    );
-
-
-
-    return false;
-
-  }
 
 }
 
@@ -592,174 +655,35 @@ async function handleCountingGame(message, client) {
 
 
 
-async function handleNameReacts(message) {
+await recordCorrectCount(
 
+client,
 
-  try {
+message.guild.id,
 
+message.author.id
 
-    const filePath = path.join(
+);
 
-      process.cwd(),
 
-      "data",
 
-      "nameReacts.json"
+return true;
 
-    );
 
 
+}catch(error){
 
-    if (!fs.existsSync(filePath)) return;
 
+logger.error(
+"Error handling counting game:",
+error
+);
 
 
-    const data = JSON.parse(
+return false;
 
-      fs.readFileSync(
 
-        filePath,
-
-        "utf8"
-
-      )
-
-    );
-
-
-
-
-    const content =
-
-      message.content.toLowerCase();
-
-
-
-
-
-    for (const userId in data) {
-
-
-
-      const reactData =
-        data[userId];
-
-
-
-
-      const member =
-
-        await message.guild.members.fetch(userId)
-
-        .catch(() => null);
-
-
-
-
-      if (!member) continue;
-
-
-
-
-      const names = [
-
-
-        member.user.username.toLowerCase(),
-
-
-        member.displayName.toLowerCase(),
-
-
-        reactData.name.toLowerCase()
-
-
-      ];
-
-
-
-
-
-      const mentioned =
-
-        message.mentions.users.has(userId);
-
-
-
-
-
-      const foundName =
-
-        names.some(name =>
-
-          content.includes(name)
-
-        );
-
-
-
-
-
-      if (
-
-        mentioned ||
-
-        foundName
-
-      ) {
-
-
-
-        for (
-
-          const emoji of reactData.emojis
-
-        ) {
-
-
-
-          await message.react(emoji)
-
-            .catch(error => {
-
-
-              logger.warn(
-
-                `Failed reacting with ${emoji}: ${error.message}`
-
-              );
-
-
-            });
-
-
-        }
-
-
-
-
-        break;
-
-      }
-
-
-    }
-
-
-
-
-  } catch(error) {
-
-
-    logger.error(
-
-      "Name react error:",
-
-      error
-
-    );
-
-
-  }
+}
 
 
 }
