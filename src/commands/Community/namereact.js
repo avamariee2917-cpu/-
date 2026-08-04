@@ -1,18 +1,14 @@
 import {
-    SlashCommandBuilder
+    SlashCommandBuilder,
+    PermissionFlagsBits,
 } from "discord.js";
 
 import fs from "fs";
 import path from "path";
 
 
-const BOOSTER_ROLES = [
-    "1532269323584802836",
-    "1533675708193177700"
-];
-
-const STAFF_ROLE =
-"1532221464839848016";
+const OWNER_ROLE_ID = "1531440557954437273";
+const STAFF_ROLE_ID = "1532221464839848016";
 
 
 const filePath = path.join(
@@ -23,13 +19,13 @@ const filePath = path.join(
 
 
 
-function loadData(){
+function getData(){
 
     if(!fs.existsSync(filePath)){
 
         fs.mkdirSync(
             path.dirname(filePath),
-            {recursive:true}
+            { recursive:true }
         );
 
         fs.writeFileSync(
@@ -41,7 +37,7 @@ function loadData(){
 
 
     return JSON.parse(
-        fs.readFileSync(filePath,"utf8")
+        fs.readFileSync(filePath, "utf8")
     );
 
 }
@@ -59,29 +55,97 @@ function saveData(data){
 
 
 
-function hasPermission(member){
+function hasAccess(interaction){
 
-    return (
+    const member = interaction.member;
 
-        BOOSTER_ROLES.some(role =>
-            member.roles.cache.has(role)
+
+    if(
+        interaction.guild.ownerId === interaction.user.id
+    ){
+
+        return true;
+
+    }
+
+
+
+    if(
+        member.roles.cache.has(OWNER_ROLE_ID)
+    ){
+
+        return true;
+
+    }
+
+
+
+    if(
+        member.roles.cache.has(STAFF_ROLE_ID)
+    ){
+
+        return true;
+
+    }
+
+
+
+    if(
+        member.roles.cache.has(
+            interaction.guild.roles.premiumSubscriberRole?.id
         )
+    ){
 
-        ||
+        return true;
 
-        member.roles.cache.has(STAFF_ROLE)
+    }
 
-    );
+
+
+    return false;
 
 }
 
 
 
-function cleanEmoji(input){
+async function findUser(input, guild){
 
-    if(!input) return null;
+    const mention =
+    input.match(/^<@!?(\d+)>$/);
 
-    return input.trim();
+
+    if(mention){
+
+        return await guild.members.fetch(
+            mention[1]
+        ).catch(()=>null);
+
+    }
+
+
+
+    if(/^\d+$/.test(input)){
+
+        return await guild.members.fetch(
+            input
+        ).catch(()=>null);
+
+    }
+
+
+
+    await guild.members.fetch();
+
+
+
+    return guild.members.cache.find(
+        member =>
+            member.user.username.toLowerCase()
+            === input.toLowerCase()
+            ||
+            member.displayName.toLowerCase()
+            === input.toLowerCase()
+    );
 
 }
 
@@ -96,67 +160,50 @@ new SlashCommandBuilder()
 
 .setName("namereact")
 
-.setDescription("Manage your name reactions")
+.setDescription(
+    "Manage name reactions"
+)
 
 
 .addSubcommand(sub =>
 
-sub
+    sub
 
-.setName("set")
+    .setName("set")
 
-.setDescription("Create your name reaction")
-
-.addStringOption(option =>
-
-option
-
-.setName("name")
-
-.setDescription("The name people will type")
-
-.setRequired(true)
-
-)
+    .setDescription(
+        "Add name reactions to a user"
+    )
 
 
-.addStringOption(option =>
+    .addStringOption(option =>
 
-option
+        option
 
-.setName("emoji1")
+        .setName("user")
 
-.setDescription("First emoji")
+        .setDescription(
+            "User ID, mention, or username"
+        )
 
-.setRequired(true)
+        .setRequired(true)
 
-)
-
-
-.addStringOption(option =>
-
-option
-
-.setName("emoji2")
-
-.setDescription("Second emoji")
-
-.setRequired(false)
-
-)
+    )
 
 
-.addStringOption(option =>
+    .addStringOption(option =>
 
-option
+        option
 
-.setName("emoji3")
+        .setName("emojis")
 
-.setDescription("Third emoji")
+        .setDescription(
+            "Up to 3 emojis separated by spaces"
+        )
 
-.setRequired(false)
+        .setRequired(true)
 
-)
+    )
 
 )
 
@@ -164,12 +211,49 @@ option
 
 .addSubcommand(sub =>
 
-sub
+    sub
 
-.setName("remove")
+    .setName("remove")
 
-.setDescription("Remove your name reaction")
+    .setDescription(
+        "Remove name reactions"
+    )
 
+
+    .addStringOption(option =>
+
+        option
+
+        .setName("user")
+
+        .setDescription(
+            "User ID, mention, or username"
+        )
+
+        .setRequired(true)
+
+    )
+
+)
+
+
+
+.addSubcommand(sub =>
+
+    sub
+
+    .setName("list")
+
+    .setDescription(
+        "View saved name reactions"
+    )
+
+)
+
+
+
+.setDefaultMemberPermissions(
+    PermissionFlagsBits.ManageMessages
 ),
 
 
@@ -181,163 +265,219 @@ category:"community",
 async execute(interaction){
 
 
-const member =
-interaction.member;
+    if(!hasAccess(interaction)){
+
+        return interaction.reply({
+
+            content:
+            "You do not have permission to use this command.",
+
+            ephemeral:true
+
+        });
+
+    }
 
 
 
-if(!hasPermission(member)){
+
+    const data = getData();
 
 
-return interaction.reply({
 
-content:
-"Only boosters and staff can use this command.",
+    const sub =
+    interaction.options.getSubcommand();
 
-ephemeral:true
 
-});
+
+
+    if(sub === "set"){
+
+
+        const userInput =
+        interaction.options.getString("user");
+
+
+
+        const emojis =
+        interaction.options.getString("emojis")
+        .split(/\s+/)
+        .filter(Boolean);
+
+
+
+        if(emojis.length > 3){
+
+            return interaction.reply({
+
+                content:
+                "You can only add up to 3 emojis.",
+
+                ephemeral:true
+
+            });
+
+        }
+
+
+
+
+        const member =
+        await findUser(
+            userInput,
+            interaction.guild
+        );
+
+
+
+        if(!member){
+
+            return interaction.reply({
+
+                content:
+                "I could not find that user.",
+
+                ephemeral:true
+
+            });
+
+        }
+
+
+
+
+        data[member.id] = {
+
+            username:
+            member.user.username,
+
+            emojis
+
+        };
+
+
+
+        saveData(data);
+
+
+
+        return interaction.reply({
+
+            content:
+            `Name reactions saved for ${member}.`,
+
+            ephemeral:true
+
+        });
+
+
+
+    }
+
+
+
+
+    if(sub === "remove"){
+
+
+        const userInput =
+        interaction.options.getString("user");
+
+
+
+        const member =
+        await findUser(
+            userInput,
+            interaction.guild
+        );
+
+
+
+        if(!member){
+
+            return interaction.reply({
+
+                content:
+                "I could not find that user.",
+
+                ephemeral:true
+
+            });
+
+        }
+
+
+
+        delete data[member.id];
+
+        saveData(data);
+
+
+
+        return interaction.reply({
+
+            content:
+            `Name reactions removed for ${member}.`,
+
+            ephemeral:true
+
+        });
+
+
+    }
+
+
+
+
+    if(sub === "list"){
+
+
+        const entries =
+        Object.entries(data);
+
+
+
+        if(entries.length === 0){
+
+            return interaction.reply({
+
+                content:
+                "No name reactions have been added.",
+
+                ephemeral:true
+
+            });
+
+        }
+
+
+
+        let text = "";
+
+
+
+        for(const [id,value] of entries){
+
+            text +=
+            `<@${id}> — ${value.emojis.join(" ")}\n`;
+
+        }
+
+
+
+        return interaction.reply({
+
+            content:text,
+
+            ephemeral:true
+
+        });
+
+
+    }
 
 
 }
-
-
-
-const data =
-loadData();
-
-
-
-const action =
-interaction.options.getSubcommand();
-
-
-
-
-if(action === "set"){
-
-
-
-const name =
-interaction.options.getString("name")
-.toLowerCase();
-
-
-
-const emojis = [
-
-cleanEmoji(
-interaction.options.getString("emoji1")
-),
-
-cleanEmoji(
-interaction.options.getString("emoji2")
-),
-
-cleanEmoji(
-interaction.options.getString("emoji3")
-)
-
-]
-
-.filter(Boolean);
-
-
-
-if(emojis.length > 3){
-
-return interaction.reply({
-
-content:
-"You can only use 3 emojis maximum.",
-
-ephemeral:true
-
-});
-
-}
-
-
-
-
-data[member.id] = {
-
-name,
-
-emojis,
-
-userId:member.id
-
-};
-
-
-
-saveData(data);
-
-
-
-return interaction.reply({
-
-content:
-
-`Your name reaction has been set for **${name}**.`,
-
-ephemeral:true
-
-});
-
-
-
-}
-
-
-
-
-
-if(action === "remove"){
-
-
-
-if(!data[member.id]){
-
-
-return interaction.reply({
-
-content:
-"You do not have a name reaction set.",
-
-ephemeral:true
-
-});
-
-
-}
-
-
-
-delete data[member.id];
-
-
-saveData(data);
-
-
-
-return interaction.reply({
-
-content:
-"Your name reaction has been removed.",
-
-ephemeral:true
-
-});
-
-
-}
-
-
-
-}
-
 
 
 };
