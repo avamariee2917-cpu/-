@@ -1,6 +1,122 @@
 import { Events } from 'discord.js';
-
+import fs from "fs";
+import path from "path";
 import { logger } from '../utils/logger.js';
+
+const nameReactFile = path.join(
+    process.cwd(),
+    "data",
+    "nameReactions.json"
+);
+
+
+function getNameReactions(){
+
+    if(!fs.existsSync(nameReactFile)){
+
+        fs.mkdirSync(
+            path.dirname(nameReactFile),
+            {
+                recursive:true
+            }
+        );
+
+
+        fs.writeFileSync(
+            nameReactFile,
+            "{}"
+        );
+
+    }
+
+
+    return JSON.parse(
+        fs.readFileSync(
+            nameReactFile,
+            "utf8"
+        )
+    );
+
+}
+
+
+
+async function handleNameReact(message){
+
+
+    try{
+
+
+        const reactions =
+        getNameReactions();
+
+
+
+        const content =
+        message.content.toLowerCase();
+
+
+
+        for(const name in reactions){
+
+
+
+            const emojis =
+            reactions[name].emojis || [];
+
+
+
+            if(
+                content.includes(
+                    name.toLowerCase()
+                )
+            ){
+
+
+
+                for(const emoji of emojis){
+
+
+                    await message.react(
+                        emoji
+                    )
+                    .catch(error=>{
+
+                        logger.warn(
+                            `Failed name reaction ${emoji}`,
+                            error
+                        );
+
+                    });
+
+
+                }
+
+
+
+                break;
+
+
+            }
+
+
+        }
+
+
+
+    }catch(error){
+
+
+        logger.error(
+            "Name react error:",
+            error
+        );
+
+
+    }
+
+
+}
 
 import { parsePrefixCommand } from '../utils/prefixParser.js';
 
@@ -257,6 +373,7 @@ export default {
 
                 `Message received from ${message.author.tag}: ${message.content}`
 
+                await handleNameReact(message);
             );
 
 
