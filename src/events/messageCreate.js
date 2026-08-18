@@ -3,46 +3,6 @@ import fs from "fs";
 import path from "path";
 
 import { logger } from "../utils/logger.js";
-import { parsePrefixCommand } from "../utils/prefixParser.js";
-
-import {
-    supportsPrefixExecution,
-    executePrefixCommand,
-    resolvePrefixAccessKey,
-} from "../utils/messageAdapter.js";
-
-import {
-    resolveCommandAlias,
-    resolveSubcommandAlias,
-} from "../config/commands/commandAliases.js";
-
-import { getPrefixRestriction } from "../config/commands/prefixRestrictions.js";
-import { getGuildConfig } from "../services/config/guildConfig.js";
-
-import {
-    getPrefixCommand,
-    getBotMessage,
-    isBotOwner,
-    isCommandCategoryEnabled,
-    isMaintenanceMode,
-} from "../config/bot.js";
-
-import {
-    enforceAbuseProtection,
-    formatCooldownDuration,
-} from "../utils/abuseProtection.js";
-
-import { createEmbed } from "../utils/embeds.js";
-import { isCommandEnabled } from "../services/commandAccessService.js";
-
-import {
-    getCountingGameConfig,
-    saveCountingGameConfig,
-    isValidCountingMessage,
-    recordCorrectCount,
-} from "../services/countingGameService.js";
-
-
 
 const nameReactionFile = path.join(
     process.cwd(),
@@ -51,28 +11,24 @@ const nameReactionFile = path.join(
 );
 
 
-
-function loadNameReactions(){
-
-    try{
-
-        if(!fs.existsSync(nameReactionFile)){
-
+/*
+ * Load saved name reactions
+ */
+function loadNameReactions() {
+    try {
+        if (!fs.existsSync(nameReactionFile)) {
             fs.mkdirSync(
                 path.dirname(nameReactionFile),
                 {
-                    recursive:true
+                    recursive: true
                 }
             );
-
 
             fs.writeFileSync(
                 nameReactionFile,
                 "{}"
             );
-
         }
-
 
         return JSON.parse(
             fs.readFileSync(
@@ -81,8 +37,7 @@ function loadNameReactions(){
             )
         );
 
-
-    }catch(error){
+    } catch (error) {
 
         logger.error(
             "Failed loading name reactions:",
@@ -90,151 +45,195 @@ function loadNameReactions(){
         );
 
         return {};
-
     }
-
 }
 
 
+/*
+ * Get the Discord emoji ID from:
+ *
+ * <a:blackdiamond:1532143696957669476>
+ *
+ * or:
+ *
+ * <:sparkle:123456789>
+ *
+ * or just:
+ *
+ * 123456789
+ */
+function getEmojiId(emoji) {
+
+    if (!emoji) {
+        return null;
+    }
+
+    const text = String(emoji).trim();
+
+    const match = text.match(
+        /<a?:\w+:(\d+)>/
+    );
+
+    if (match) {
+        return match[1];
+    }
+
+    if (/^\d+$/.test(text)) {
+        return text;
+    }
+
+    return null;
+}
 
 
-async function handleNameReact(message){
+/*
+ * Handle Name Reactions
+ */
+async function handleNameReact(message) {
+
+    try {
+
+        const reactions = loadNameReactions();
+
+        const content = message.content.toLowerCase();
 
 
-    try{
+        for (const name in reactions) {
 
+            const reaction = reactions[name];
 
-        const reactions =
-        loadNameReactions();
-
-
-
-        const content =
-        message.content.toLowerCase();
-
-
-
-        for(
-            const name in reactions
-        ){
-
-
-            const reaction =
-            reactions[name];
-
-
-
-            if(
+            if (
+                !reaction ||
                 !reaction.emojis ||
                 reaction.emojis.length === 0
-            ){
-
+            ) {
                 continue;
-
             }
 
 
+            /*
+             * Check whether the custom trigger name
+             * was used as a complete word.
+             *
+             * Example:
+             *
+             * "aeris is here"     -> YES
+             * "AERIS is here"     -> YES
+             * "aeris!"            -> YES
+             * "aeris123"          -> NO
+             */
+            const escapedName = name
+                .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-            const words =
-            content.split(/\s+/);
+            const nameRegex = new RegExp(
+                `(^|\\s)${escapedName}(?=\\s|$|[.,!?;:'"()\\[\\]{}])`,
+                "i"
+            );
+
+            const nameWasUsed = nameRegex.test(
+                message.content
+            );
 
 
+            /*
+             * Check whether the member who created
+             * this Name Reaction was mentioned.
+             */
+            let memberWasMentioned = false;
 
-            if(
-                words.includes(
-                    name.toLowerCase()
-                )
-            ){
+            if (reaction.createdBy) {
+
+                memberWasMentioned =
+                    message.mentions.users.has(
+                        reaction.createdBy
+                    );
+            }
 
 
-                for(
-                    const emoji of reaction.emojis
-                ){
+            /*
+             * Either the custom name OR the owner
+             * being mentioned can trigger it.
+             */
+            if (
+                !nameWasUsed &&
+                !memberWasMentioned
+            ) {
+                continue;
+            }
 
-                    await message.react(
-                        emoji
-                    )
-                    .catch(error=>{
 
-                        logger.warn(
-                            `Failed reacting with ${emoji}`,
-                            error
-                        );
+            /*
+             * React with every saved emoji.
+             */
+            for (const emoji of reaction.emojis) {
 
-                    });
+                const emojiId =
+                    getEmojiId(emoji);
 
+                if (!emojiId) {
+
+                    logger.warn(
+                        `Could not understand Name Reaction emoji: ${emoji}`
+                    );
+
+                    continue;
                 }
 
 
-                break;
-
-            }
-
-
-            if(
-                message.mentions.users.size > 0 &&
-                content.includes(name.toLowerCase())
-            ){
-
-
-                for(
-                    const emoji of reaction.emojis
-                ){
+                try {
 
                     await message.react(
-                        emoji
-                    )
-                    .catch(()=>{});
+                        emojiId
+                    );
+
+                } catch (error) {
+
+                    logger.warn(
+                        `Failed to react with emoji ${emojiId} for Name Reaction "${name}"`,
+                        error
+                    );
 
                 }
-
-
-                break;
-
             }
 
 
+            /*
+             * We found the matching Name Reaction,
+             * so stop checking the remaining ones.
+             */
+            break;
         }
 
-
-    }catch(error){
-
+    } catch (error) {
 
         logger.error(
             "Name reaction error:",
             error
         );
-
-
     }
-
-
 }
 
 
-
-
-
+/*
+ * Discord messageCreate event
+ */
 export default {
 
     name: Events.MessageCreate,
 
+    async execute(message, client) {
 
-    async execute(message, client){
+        try {
 
-
-        try{
-
-
-            if(
+            /*
+             * Ignore bots and DMs.
+             */
+            if (
                 message.author.bot ||
                 !message.guild
-            ){
-
+            ) {
                 return;
-
             }
-
 
 
             logger.debug(
@@ -242,49 +241,23 @@ export default {
             );
 
 
-
+            /*
+             * NAME REACTIONS
+             */
             await handleNameReact(
                 message
             );
 
 
-
-            const countingProcessed =
-            await handleCountingGame(
-                message,
-                client
-            );
-
-
-
-            if(countingProcessed){
-
-                return;
-
-            }
-
-
-
-            await handlePrefixCommand(
-                message,
-                client
-            );
-
-
-
-        }catch(error){
-
+        } catch (error) {
 
             logger.error(
                 "Error in messageCreate event:",
                 error
             );
 
-
         }
 
-
     }
-
 
 };
