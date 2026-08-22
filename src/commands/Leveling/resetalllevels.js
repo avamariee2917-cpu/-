@@ -4,42 +4,24 @@ import {
 } from 'discord.js';
 
 import {
-  resetUserLevel,
-} from '../../services/levelingService.js';
-
-import {
+  resetGuildLevels,
   LEVEL_ROLES,
 } from '../../services/levelingService.js';
 
 export default {
   data: new SlashCommandBuilder()
-    .setName('reset-level')
-    .setDescription('Reset one user to level 1.')
-    .addUserOption(option =>
-      option
-        .setName('user')
-        .setDescription('User to reset')
-        .setRequired(true)
-    )
+    .setName('reset-all-levels')
+    .setDescription('Reset every user's level.')
     .setDefaultMemberPermissions(
-      PermissionFlagsBits.ManageGuild
+      PermissionFlagsBits.Administrator
     ),
 
   async execute(interaction) {
-    const target =
-      interaction.options.getUser('user');
-
-    resetUserLevel(
-      interaction.guild.id,
-      target.id
+    resetGuildLevels(
+      interaction.guild.id
     );
 
-    const member =
-      await interaction.guild.members
-        .fetch(target.id)
-        .catch(() => null);
-
-    if (member) {
+    for (const member of interaction.guild.members.cache.values()) {
       for (const roleId of Object.values(LEVEL_ROLES)) {
         if (member.roles.cache.has(roleId)) {
           await member.roles
@@ -51,7 +33,7 @@ export default {
 
     await interaction.reply({
       content:
-        `${target.username}'s level has been reset to **1**.`,
+        'All leveling data has been reset.',
     });
   },
 };
