@@ -72,7 +72,7 @@ const ROLE_LEVELS = Object.keys(LEVEL_ROLES)
 const MIN_XP_PER_MESSAGE = 15;
 const MAX_XP_PER_MESSAGE = 25;
 
-const XP_COOLDOWN = 60 * 1000;
+const XP_COOLDOWN = 30 * 1000;
 
 const MAX_LEVEL = 100;
 
