@@ -28,7 +28,7 @@ const DATA_FILE = path.join(
 );
 
 // ============================================================
-// ROLE IDs
+// ROLE IDS
 // ============================================================
 
 const BOOSTER_1_ROLE = '1532269323584802836';
@@ -38,7 +38,7 @@ const STAFF_ROLE = '1532221464839848016';
 const OWNER_ROLE = '1531440557954437273';
 
 // ============================================================
-// NAME REACTION LIMITS
+// LIMITS
 // ============================================================
 
 const ONE_BOOST_LIMIT = 1;
@@ -120,45 +120,39 @@ function saveData(data) {
 }
 
 // ============================================================
-// DETERMINE USER LIMIT
+// GET USER LIMIT
 // ============================================================
 
 function getReactionLimit(member) {
-
-  // Owner
   if (
     member.roles.cache.has(OWNER_ROLE)
   ) {
     return THREE_REACTION_LIMIT;
   }
 
-  // Staff
   if (
     member.roles.cache.has(STAFF_ROLE)
   ) {
     return THREE_REACTION_LIMIT;
   }
 
-  // Two boosts
   if (
     member.roles.cache.has(BOOSTER_2_ROLE)
   ) {
     return THREE_REACTION_LIMIT;
   }
 
-  // One boost
   if (
     member.roles.cache.has(BOOSTER_1_ROLE)
   ) {
     return ONE_BOOST_LIMIT;
   }
 
-  // Normal member
   return 0;
 }
 
 // ============================================================
-// STAFF / OWNER CHECK
+// STAFF / OWNER
 // ============================================================
 
 function canManageOthers(member) {
@@ -169,11 +163,10 @@ function canManageOthers(member) {
 }
 
 // ============================================================
-// EMOJI CHECK
+// EMOJI
 // ============================================================
 
 function getEmojiId(emoji) {
-
   if (!emoji) {
     return null;
   }
@@ -190,38 +183,16 @@ function getEmojiId(emoji) {
 }
 
 // ============================================================
-// GET MEMBER NAME
-// ============================================================
-
-async function getMemberName(guild, userId) {
-
-  try {
-
-    const member =
-      await guild.members.fetch(userId);
-
-    return member.displayName;
-
-  } catch {
-
-    return `Unknown Member (${userId})`;
-
-  }
-}
-
-// ============================================================
-// GET ALL NAME REACTIONS
+// GET ALL REACTIONS
 // ============================================================
 
 async function getAllReactions(guild, data) {
-
   const allReactions = [];
 
   for (
     const [userId, userData]
     of Object.entries(data)
   ) {
-
     if (
       !userData ||
       !Array.isArray(userData.reactions)
@@ -229,91 +200,73 @@ async function getAllReactions(guild, data) {
       continue;
     }
 
-    const memberName =
-      await getMemberName(
-        guild,
-        userId
-      );
+    let memberName = userId;
 
-    for (
-      let index = 0;
-      index < userData.reactions.length;
-      index++
-    ) {
+    try {
+      const targetMember =
+        await guild.members.fetch(userId);
 
-      const reaction =
-        userData.reactions[index];
-
-      if (
-        !reaction ||
-        !reaction.trigger
-      ) {
-        continue;
-      }
-
-      allReactions.push({
-
-        userId,
-
-        memberName,
-
-        reactionIndex: index,
-
-        trigger:
-          reaction.trigger,
-
-        emoji:
-          reaction.emoji,
-
-      });
-
+      memberName =
+        targetMember.displayName;
+    } catch {
+      memberName =
+        `Unknown Member (${userId})`;
     }
 
+    userData.reactions.forEach(
+      (reaction, index) => {
+        if (
+          !reaction ||
+          !reaction.trigger
+        ) {
+          return;
+        }
+
+        allReactions.push({
+          userId,
+          memberName,
+          reactionIndex: index,
+          trigger: reaction.trigger,
+          emoji: reaction.emoji,
+        });
+      }
+    );
   }
 
   return allReactions;
 }
 
 // ============================================================
-// BUILD REMOVE MENU
+// BUILD STAFF REMOVE MENU
 // ============================================================
 
 function buildRemoveMenu(allReactions) {
-
   const options =
     allReactions
       .slice(0, 25)
       .map(reaction => ({
-
         label:
           `${reaction.trigger} — ${reaction.memberName}`
             .slice(0, 100),
 
         description:
-          `Delete ${reaction.memberName}'s name reaction`
+          `Delete ${reaction.memberName}'s reaction`
             .slice(0, 100),
 
         value:
           `${reaction.userId}::${reaction.reactionIndex}`,
-
       }));
 
   return new ActionRowBuilder().addComponents(
-
     new StringSelectMenuBuilder()
-
       .setCustomId(
         'nameReactionRemove'
       )
-
       .setPlaceholder(
-        'Select a name reaction to remove...'
+        'Select a name reaction to delete...'
       )
-
       .addOptions(options)
-
   );
-
 }
 
 // ============================================================
@@ -321,118 +274,87 @@ function buildRemoveMenu(allReactions) {
 // ============================================================
 
 export default {
+  data: new SlashCommandBuilder()
+    .setName('namereact')
+    .setDescription(
+      'Manage custom name reactions.'
+    )
 
-  data:
-    new SlashCommandBuilder()
+    // ========================================================
+    // SET
+    // ========================================================
 
-      .setName('namereact')
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('set')
+        .setDescription(
+          'Set a name reaction.'
+        )
+        .addStringOption(option =>
+          option
+            .setName('trigger')
+            .setDescription(
+              'The name or word to trigger.'
+            )
+            .setRequired(true)
+            .setMaxLength(50)
+        )
+        .addStringOption(option =>
+          option
+            .setName('emoji')
+            .setDescription(
+              'The custom server emoji.'
+            )
+            .setRequired(true)
+        )
+    )
 
-      .setDescription(
-        'Manage your custom name reactions.'
-      )
+    // ========================================================
+    // REMOVE
+    // ========================================================
 
-      // ======================================================
-      // SET
-      // ======================================================
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('remove')
+        .setDescription(
+          'Remove one of your name reactions.'
+        )
+        .addStringOption(option =>
+          option
+            .setName('trigger')
+            .setDescription(
+              'Your trigger to remove.'
+            )
+            .setRequired(false)
+        )
+    )
 
-      .addSubcommand(subcommand =>
-        subcommand
+    // ========================================================
+    // LIST
+    // ========================================================
 
-          .setName('set')
-
-          .setDescription(
-            'Set a name trigger and custom emoji.'
-          )
-
-          .addStringOption(option =>
-            option
-
-              .setName('trigger')
-
-              .setDescription(
-                'The name or word that should trigger the reaction.'
-              )
-
-              .setRequired(true)
-
-              .setMaxLength(50)
-          )
-
-          .addStringOption(option =>
-            option
-
-              .setName('emoji')
-
-              .setDescription(
-                'The custom server emoji to use.'
-              )
-
-              .setRequired(true)
-          )
-      )
-
-      // ======================================================
-      // REMOVE
-      // ======================================================
-
-      .addSubcommand(subcommand =>
-        subcommand
-
-          .setName('remove')
-
-          .setDescription(
-            'Remove a name reaction.'
-          )
-
-          .addStringOption(option =>
-            option
-
-              .setName('trigger')
-
-              .setDescription(
-                'The trigger you want to remove.'
-              )
-
-              .setRequired(false)
-          )
-      )
-
-      // ======================================================
-      // LIST
-      // ======================================================
-
-      .addSubcommand(subcommand =>
-        subcommand
-
-          .setName('list')
-
-          .setDescription(
-            'View all saved name reactions.'
-          )
-      ),
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('list')
+        .setDescription(
+          'View saved name reactions.'
+        )
+    ),
 
   // ==========================================================
   // EXECUTE
   // ==========================================================
 
   async execute(interaction) {
-
     await interaction.deferReply({
       ephemeral: true,
     });
 
     try {
-
       const member =
         await interaction.guild.members.fetch(
           interaction.user.id
         );
-
-      const limit =
-        getReactionLimit(member);
-
-      const subcommand =
-        interaction.options.getSubcommand();
 
       const data =
         loadData();
@@ -440,16 +362,20 @@ export default {
       const userId =
         interaction.user.id;
 
-      // ======================================================
-      // MAKE SURE USER DATA EXISTS
-      // ======================================================
+      const limit =
+        getReactionLimit(member);
+
+      const subcommand =
+        interaction.options.getSubcommand();
+
+      // ------------------------------------------------------
+      // USER DATA
+      // ------------------------------------------------------
 
       if (!data[userId]) {
-
         data[userId] = {
           reactions: [],
         };
-
       }
 
       if (
@@ -457,9 +383,7 @@ export default {
           data[userId].reactions
         )
       ) {
-
         data[userId].reactions = [];
-
       }
 
       const reactions =
@@ -470,31 +394,18 @@ export default {
       // ======================================================
 
       if (subcommand === 'set') {
-
-        // ----------------------------------------------------
-        // CHECK ELIGIBILITY
-        // ----------------------------------------------------
-
         if (limit === 0) {
-
           return interaction.editReply(
-            'You are not eligible for name reactions. This feature is available to boosters, staff, and the server owner.'
+            'You are not eligible for name reactions.'
           );
-
         }
-
-        // ----------------------------------------------------
-        // CHECK SLOT LIMIT
-        // ----------------------------------------------------
 
         if (
           reactions.length >= limit
         ) {
-
           return interaction.editReply(
-            `You have reached your name reaction limit of **${limit}**.`
+            `You have reached your limit of **${limit}** name reaction slot(s).`
           );
-
         }
 
         const trigger =
@@ -508,21 +419,11 @@ export default {
             .getString('emoji')
             .trim();
 
-        // ----------------------------------------------------
-        // VALIDATE TRIGGER
-        // ----------------------------------------------------
-
         if (!trigger) {
-
           return interaction.editReply(
             'The trigger cannot be empty.'
           );
-
         }
-
-        // ----------------------------------------------------
-        // CHECK DUPLICATE
-        // ----------------------------------------------------
 
         const duplicate =
           reactions.some(
@@ -531,16 +432,10 @@ export default {
           );
 
         if (duplicate) {
-
           return interaction.editReply(
-            `You already have a reaction trigger for **${trigger}**.`
+            `You already have a reaction for **${trigger}**.`
           );
-
         }
-
-        // ----------------------------------------------------
-        // VALIDATE EMOJI
-        // ----------------------------------------------------
 
         const emojiId =
           getEmojiId(
@@ -548,11 +443,9 @@ export default {
           );
 
         if (!emojiId) {
-
           return interaction.editReply(
             'Please use a custom emoji from this server.'
           );
-
         }
 
         const emoji =
@@ -561,31 +454,18 @@ export default {
           );
 
         if (!emoji) {
-
           return interaction.editReply(
             'That emoji does not belong to this server.'
           );
-
         }
 
-        // ----------------------------------------------------
-        // SAVE
-        // ----------------------------------------------------
-
         reactions.push({
-
           trigger,
-
           emoji:
             emoji.toString(),
-
         });
 
         saveData(data);
-
-        // ----------------------------------------------------
-        // DETERMINE ACCOUNT TYPE
-        // ----------------------------------------------------
 
         let accessType =
           'Name Reaction';
@@ -595,53 +475,38 @@ export default {
             OWNER_ROLE
           )
         ) {
-
           accessType =
             'Server Owner';
-
         } else if (
           member.roles.cache.has(
             STAFF_ROLE
           )
         ) {
-
           accessType =
-            'Staff';
-
+            'Staff — 3 slots';
         } else if (
           member.roles.cache.has(
             BOOSTER_2_ROLE
           )
         ) {
-
           accessType =
-            '2× Booster';
-
+            '2× Booster — 3 slots';
         } else if (
           member.roles.cache.has(
             BOOSTER_1_ROLE
           )
         ) {
-
           accessType =
-            '1× Booster';
-
+            '1× Booster — 1 slot';
         }
 
         return interaction.editReply(
-
           `**Name reaction added.**\n\n` +
-
           `Trigger: \`${trigger}\`\n` +
-
           `Reaction: ${emoji}\n` +
-
           `Access: **${accessType}**\n` +
-
           `Slots: **${reactions.length}/${limit}**`
-
         );
-
       }
 
       // ======================================================
@@ -649,7 +514,6 @@ export default {
       // ======================================================
 
       if (subcommand === 'remove') {
-
         // ----------------------------------------------------
         // STAFF / OWNER
         // ----------------------------------------------------
@@ -657,7 +521,6 @@ export default {
         if (
           canManageOthers(member)
         ) {
-
           const allReactions =
             await getAllReactions(
               interaction.guild,
@@ -667,27 +530,18 @@ export default {
           if (
             allReactions.length === 0
           ) {
-
             return interaction.editReply({
-
               embeds: [
-
                 new EmbedBuilder()
-
                   .setTitle(
                     'Name Reaction Removal'
                   )
-
                   .setDescription(
                     'There are currently no saved name reactions.'
                   ),
-
               ],
-
               components: [],
-
             });
-
           }
 
           const menu =
@@ -695,49 +549,39 @@ export default {
               allReactions
             );
 
-          let description =
-            'Select a name reaction below to remove it.\n\n';
-
-          description +=
+          const lines =
             allReactions
               .slice(0, 25)
               .map(
                 reaction =>
                   `${reaction.emoji} \`${reaction.trigger}\` — **${reaction.memberName}**`
-              )
-              .join('\n');
+              );
+
+          let description =
+            lines.join('\n');
 
           if (
             allReactions.length > 25
           ) {
-
             description +=
               `\n\nShowing **25/${allReactions.length}** reactions.`;
-
           }
 
           return interaction.editReply({
-
             embeds: [
-
               new EmbedBuilder()
-
                 .setTitle(
                   'Name Reaction Removal'
                 )
-
                 .setDescription(
-                  description
+                  description +
+                  '\n\nSelect one below to delete it.'
                 ),
-
             ],
-
             components: [
               menu,
             ],
-
           });
-
         }
 
         // ----------------------------------------------------
@@ -745,23 +589,20 @@ export default {
         // ----------------------------------------------------
 
         if (limit === 0) {
-
           return interaction.editReply(
             'You are not eligible for name reactions.'
           );
-
         }
 
         const trigger =
-          interaction.options
-            .getString('trigger');
+          interaction.options.getString(
+            'trigger'
+          );
 
         if (!trigger) {
-
           return interaction.editReply(
             'Please provide the trigger you want to remove.'
           );
-
         }
 
         const normalizedTrigger =
@@ -777,11 +618,9 @@ export default {
           );
 
         if (index === -1) {
-
           return interaction.editReply(
             `You don't have a name reaction for **${normalizedTrigger}**.`
           );
-
         }
 
         const removed =
@@ -795,25 +634,17 @@ export default {
         if (
           reactions.length === 0
         ) {
-
           delete data[userId];
-
         }
 
         saveData(data);
 
         return interaction.editReply(
-
           `**Name reaction removed.**\n\n` +
-
           `Trigger: \`${removed.trigger}\`\n` +
-
           `Reaction: ${removed.emoji}\n` +
-
           `Slots: **${reactions.length}/${limit}**`
-
         );
-
       }
 
       // ======================================================
@@ -821,53 +652,36 @@ export default {
       // ======================================================
 
       if (subcommand === 'list') {
-
         const allReactions =
           await getAllReactions(
             interaction.guild,
             data
           );
 
-        // ----------------------------------------------------
-        // NOTHING SAVED
-        // ----------------------------------------------------
-
         if (
           allReactions.length === 0
         ) {
-
           return interaction.editReply({
-
             embeds: [
-
               new EmbedBuilder()
-
                 .setTitle(
                   'Name Reactions'
                 )
-
                 .setDescription(
                   'There are currently no saved name reactions.'
                 ),
-
             ],
-
           });
-
         }
 
-        // ----------------------------------------------------
-        // BUILD LIST
-        // ----------------------------------------------------
-
-        const visibleReactions =
+        const visible =
           allReactions.slice(
             0,
             25
           );
 
         const lines =
-          visibleReactions.map(
+          visible.map(
             reaction =>
               `${reaction.emoji} \`${reaction.trigger}\` — **${reaction.memberName}**`
           );
@@ -878,55 +692,37 @@ export default {
         if (
           allReactions.length > 25
         ) {
-
           description +=
             `\n\nShowing **25/${allReactions.length}** reactions.`;
-
         }
 
-        // ----------------------------------------------------
-        // LIST EMBED
-        // ----------------------------------------------------
-
         return interaction.editReply({
-
           embeds: [
-
             new EmbedBuilder()
-
               .setTitle(
                 'Name Reactions'
               )
-
               .setDescription(
                 description
               )
-
               .setFooter({
                 text:
-                  'Name reaction triggers currently saved in the server.',
+                  'Trigger — Member',
               }),
-
           ],
-
         });
-
       }
 
     } catch (error) {
-
       console.error(
         'Name reaction command error:',
         error
       );
 
       return interaction.editReply(
-        'Something went wrong while managing your name reactions.'
+        'Something went wrong while managing name reactions.'
       );
-
     }
-
   },
-
 };
 ```
