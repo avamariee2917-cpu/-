@@ -1,3 +1,4 @@
+```js
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,7 +10,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DATA_DIRECTORY = path.join(__dirname, '../../../data');
+const DATA_DIRECTORY = path.join(
+  __dirname,
+  '../../../data'
+);
 
 const DATA_FILE = path.join(
   DATA_DIRECTORY,
@@ -67,6 +71,7 @@ function loadData() {
     }
 
     return data;
+
   } catch (error) {
     console.error(
       'Failed to load name reaction data:',
@@ -88,6 +93,7 @@ function saveData(data) {
     );
 
     return true;
+
   } catch (error) {
     console.error(
       'Failed to save name reaction data:',
@@ -107,9 +113,10 @@ export default {
 
   async execute(interaction) {
     try {
-      // ------------------------------------------------------
-      // ONLY GUILD
-      // ------------------------------------------------------
+
+      // ======================================================
+      // SERVER ONLY
+      // ======================================================
 
       if (!interaction.guild) {
         return interaction.reply({
@@ -119,13 +126,14 @@ export default {
         });
       }
 
-      // ------------------------------------------------------
+      // ======================================================
       // STAFF / OWNER CHECK
-      // ------------------------------------------------------
+      // ======================================================
 
-      const member = await interaction.guild.members.fetch(
-        interaction.user.id
-      );
+      const member =
+        await interaction.guild.members.fetch(
+          interaction.user.id
+        );
 
       const isStaff =
         member.roles.cache.has(STAFF_ROLE);
@@ -141,9 +149,9 @@ export default {
         });
       }
 
-      // ------------------------------------------------------
-      // GET SELECTED VALUE
-      // ------------------------------------------------------
+      // ======================================================
+      // GET SELECTED REACTION
+      // ======================================================
 
       const selectedValue =
         interaction.values?.[0];
@@ -157,13 +165,13 @@ export default {
       }
 
       /*
-       * Format:
+       * Selection format:
        *
        * userId::reactionIndex
        *
        * Example:
        *
-       * 123456789::0
+       * 123456789012345678::0
        */
 
       const separatorIndex =
@@ -202,66 +210,99 @@ export default {
         });
       }
 
-      // ------------------------------------------------------
+      // ======================================================
       // LOAD DATA
-      // ------------------------------------------------------
+      // ======================================================
 
-      const data = loadData();
+      const data =
+        loadData();
 
       const userData =
         data[userId];
 
       if (
         !userData ||
-        !Array.isArray(userData.reactions)
+        !Array.isArray(
+          userData.reactions
+        )
       ) {
-        return interaction.reply({
+        return interaction.update({
           content:
-            'That member no longer has any name reactions.',
-          ephemeral: true,
+            'That member no longer has any saved name reactions.',
+          components: [],
         });
       }
 
-      // ------------------------------------------------------
-      // GET REACTION
-      // ------------------------------------------------------
+      // ======================================================
+      // FIND REACTION
+      // ======================================================
 
       const reaction =
-        userData.reactions[reactionIndex];
+        userData.reactions[
+          reactionIndex
+        ];
 
       if (!reaction) {
-        return interaction.reply({
+        return interaction.update({
           content:
             'That name reaction no longer exists.',
-          ephemeral: true,
+          components: [],
         });
       }
 
-      // ------------------------------------------------------
-      // REMOVE
-      // ------------------------------------------------------
+      // ======================================================
+      // SAVE DETAILS BEFORE DELETING
+      // ======================================================
+
+      const removedTrigger =
+        reaction.trigger;
+
+      const removedEmoji =
+        reaction.emoji;
+
+      // ======================================================
+      // REMOVE REACTION
+      // ======================================================
 
       userData.reactions.splice(
         reactionIndex,
         1
       );
 
-      // Remove empty user entry
+      // ======================================================
+      // REMOVE EMPTY USER ENTRY
+      // ======================================================
+
       if (
         userData.reactions.length === 0
       ) {
         delete data[userId];
       }
 
-      saveData(data);
+      // ======================================================
+      // SAVE
+      // ======================================================
 
-      // ------------------------------------------------------
-      // MEMBER NAME
-      // ------------------------------------------------------
+      const saved =
+        saveData(data);
 
-      let memberName = userId;
+      if (!saved) {
+        return interaction.update({
+          content:
+            'The name reaction could not be removed because the data file could not be saved.',
+          components: [],
+        });
+      }
+
+      // ======================================================
+      // GET MEMBER NAME
+      // ======================================================
+
+      let memberName =
+        userId;
 
       try {
+
         const targetMember =
           await interaction.guild.members.fetch(
             userId
@@ -269,36 +310,52 @@ export default {
 
         memberName =
           targetMember.displayName;
+
       } catch {
-        // Member may have left the server.
+        /*
+         * The member may have left the server.
+         * We keep the Discord user ID instead.
+         */
       }
 
-      // ------------------------------------------------------
+      // ======================================================
       // CONFIRMATION
-      // ------------------------------------------------------
+      // ======================================================
 
       return interaction.update({
+
         content:
           `**Name reaction removed.**\n\n` +
           `Member: **${memberName}**\n` +
-          `Trigger: \`${reaction.trigger}\`\n` +
-          `Reaction: ${reaction.emoji}`,
+          `Trigger: \`${removedTrigger}\`\n` +
+          `Reaction: ${removedEmoji}`,
 
         components: [],
+
       });
 
     } catch (error) {
+
       console.error(
         'Name reaction removal interaction error:',
         error
       );
 
-      if (interaction.replied) {
+      // ======================================================
+      // ERROR RESPONSE
+      // ======================================================
+
+      if (
+        interaction.replied ||
+        interaction.deferred
+      ) {
+
         return interaction.followUp({
           content:
             'Something went wrong while removing that name reaction.',
           ephemeral: true,
         });
+
       }
 
       return interaction.reply({
@@ -306,6 +363,8 @@ export default {
           'Something went wrong while removing that name reaction.',
         ephemeral: true,
       });
+
     }
   },
 };
+```
