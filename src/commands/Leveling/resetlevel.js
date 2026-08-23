@@ -20,11 +20,15 @@ const LEVEL_ROLES = {
 export default {
   data: new SlashCommandBuilder()
     .setName('resetlevel')
-    .setDescription('Reset a member back to level 1.')
+    .setDescription(
+      'Reset one member back to Level 1 and 0 XP.'
+    )
     .addUserOption(option =>
       option
         .setName('user')
-        .setDescription('The member whose level you want to reset.')
+        .setDescription(
+          'The member whose leveling progress you want to reset.'
+        )
         .setRequired(true)
     )
     .setDefaultMemberPermissions(
@@ -38,29 +42,52 @@ export default {
       const targetUser =
         interaction.options.getUser('user');
 
-      const member =
-        await interaction.guild.members.fetch(targetUser.id);
+      const guildId =
+        interaction.guild.id;
 
+      /*
+       * Make sure the leveling data exists.
+       */
       if (!interaction.client.levelingData) {
         interaction.client.levelingData = {};
       }
 
-      if (!interaction.client.levelingData[interaction.guild.id]) {
-        interaction.client.levelingData[interaction.guild.id] = {};
+      if (!interaction.client.levelingData[guildId]) {
+        interaction.client.levelingData[guildId] = {};
       }
 
       /*
-       * Reset the member to level 1 with 0 XP.
+       * Completely remove the member's saved
+       * leveling data.
+       *
+       * The leveling system will automatically
+       * treat them as Level 1 / 0 XP afterward.
        */
-      interaction.client.levelingData[
-        interaction.guild.id
-      ][targetUser.id] = {
-        xp: 0,
-        level: 1,
-      };
+      delete interaction.client.levelingData[guildId][
+        targetUser.id
+      ];
 
       /*
-       * Remove every leveling role from the member.
+       * Fetch the member so we can remove their
+       * leveling roles.
+       */
+      const member =
+        await interaction.guild.members.fetch(
+          targetUser.id
+        );
+
+      /*
+       * Get the bot's highest role so we can avoid
+       * trying to manage roles above it.
+       */
+      const botMember =
+        interaction.guild.members.me ||
+        await interaction.guild.members.fetchMe();
+
+      let rolesRemoved = 0;
+
+      /*
+       * Remove every leveling role from this member.
        */
       for (const roleId of Object.values(LEVEL_ROLES)) {
         if (!member.roles.cache.has(roleId)) {
@@ -74,21 +101,41 @@ export default {
           continue;
         }
 
+        /*
+         * Discord does not allow the bot to manage
+         * roles that are equal to or higher than its
+         * highest role.
+         */
+        if (
+          botMember &&
+          role.position >=
+            botMember.roles.highest.position
+        ) {
+          console.warn(
+            `Cannot remove ${role.name} from ${member.user.tag} because the role is above the bot's highest role.`
+          );
+
+          continue;
+        }
+
         try {
           await member.roles.remove(
             role,
-            'Member level reset to level 1'
+            'Member leveling progress reset'
           );
+
+          rolesRemoved++;
+
         } catch (error) {
           console.error(
-            `Could not remove leveling role ${roleId} from ${member.user.tag}:`,
+            `Could not remove leveling role ${role.name} from ${member.user.tag}:`,
             error
           );
         }
       }
 
       /*
-       * Save the leveling data.
+       * Save the updated leveling data.
        */
       if (
         typeof interaction.client.saveLevelingData === 'function'
@@ -97,17 +144,22 @@ export default {
       }
 
       await interaction.editReply(
-        `Successfully reset <@${targetUser.id}> to level **1** with **0 XP**.\n\nAll leveling roles have been removed.`
+        `## Level Reset\n\n` +
+        `<@${targetUser.id}> has been reset.\n\n` +
+        `**Level:** 1\n` +
+        `**XP:** 0\n` +
+        `**Leveling roles removed:** ${rolesRemoved}\n\n` +
+        `They can now start earning XP again from Level 1.`
       );
 
     } catch (error) {
       console.error(
-        'ResetLevel command error:',
+        'Reset level command error:',
         error
       );
 
       await interaction.editReply(
-        'I could not reset that member\'s level. Check that I have permission to manage their leveling roles.'
+        'I could not reset that member\'s level. Check that the member exists and that I have permission to manage their leveling roles.'
       );
     }
   },
