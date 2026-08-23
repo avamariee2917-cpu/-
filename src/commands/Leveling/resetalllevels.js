@@ -20,7 +20,9 @@ const LEVEL_ROLES = {
 export default {
   data: new SlashCommandBuilder()
     .setName('resetalllevels')
-    .setDescription('Reset all leveling data in this server.')
+    .setDescription(
+      'Reset every member in the server back to Level 1 and 0 XP.'
+    )
     .setDefaultMemberPermissions(
       PermissionFlagsBits.Administrator
     ),
@@ -29,54 +31,105 @@ export default {
     await interaction.deferReply({ ephemeral: true });
 
     try {
+      const guildId = interaction.guild.id;
+
+      // Make sure leveling data exists
       if (!interaction.client.levelingData) {
         interaction.client.levelingData = {};
       }
 
-      interaction.client.levelingData[
-        interaction.guild.id
-      ] = {};
+      /*
+       * Completely erase this server's leveling data.
+       *
+       * This means:
+       * - Everyone goes back to Level 1
+       * - Everyone goes back to 0 XP
+       * - Members will begin earning XP normally again
+       */
+      interaction.client.levelingData[guildId] = {};
+
+      // Save the reset immediately
+      if (
+        typeof interaction.client.saveLevelingData === 'function'
+      ) {
+        interaction.client.saveLevelingData();
+      }
 
       /*
-       * Remove all leveling roles from members.
+       * Fetch every member in the server so we can
+       * remove their leveling roles.
        */
       const members =
         await interaction.guild.members.fetch();
 
-      const roleIds =
+      const levelingRoleIds =
         Object.values(LEVEL_ROLES);
 
+      let membersReset = 0;
+      let rolesRemoved = 0;
+
+      /*
+       * Go through every member.
+       */
       for (const [, member] of members) {
+        // Never modify bots
         if (member.user.bot) {
           continue;
         }
 
+        /*
+         * Find all leveling roles currently on
+         * this member.
+         */
         const rolesToRemove =
           member.roles.cache.filter(role =>
-            roleIds.includes(role.id)
+            levelingRoleIds.includes(role.id)
           );
 
+        if (rolesToRemove.size === 0) {
+          continue;
+        }
+
+        membersReset++;
+
+        /*
+         * Remove each leveling role.
+         */
         for (const [, role] of rolesToRemove) {
           try {
             await member.roles.remove(
               role,
-              'Server leveling reset'
+              'Server leveling system reset'
             );
+
+            rolesRemoved++;
+
           } catch (error) {
             console.error(
-              `Could not remove leveling role from ${member.user.tag}:`,
+              `Could not remove leveling role ${role.name} from ${member.user.tag}:`,
               error
             );
           }
         }
       }
 
-      if (typeof interaction.client.saveLevelingData === 'function') {
+      /*
+       * Save one more time after the role reset.
+       */
+      if (
+        typeof interaction.client.saveLevelingData === 'function'
+      ) {
         interaction.client.saveLevelingData();
       }
 
       await interaction.editReply(
-        'All leveling data has been reset. All leveling roles have also been removed.'
+        `## Leveling System Reset\n\n` +
+        `All leveling data has been completely reset.\n\n` +
+        `**Level:** 1\n` +
+        `**XP:** 0\n` +
+        `**Members with leveling roles removed:** ${membersReset}\n` +
+        `**Leveling roles removed:** ${rolesRemoved}\n\n` +
+        `Everyone can now start leveling from the beginning.`
       );
 
     } catch (error) {
@@ -86,7 +139,7 @@ export default {
       );
 
       await interaction.editReply(
-        'I could not reset the server leveling system.'
+        'I could not reset the leveling system. Check the bot permissions and try again.'
       );
     }
   },
