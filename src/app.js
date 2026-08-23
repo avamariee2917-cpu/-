@@ -515,13 +515,181 @@ class TitanBot extends Client {
   // LEVELING SYSTEM
   // ==========================================================
 
-  setupLevelingSystem() {
+ setupLevelingSystem() {
 
-    this.on(
-      'messageCreate',
-      async message => {
+  this.on(
+    'messageCreate',
+    async message => {
 
-        try {
+      try {
+
+        // Ignore bots
+        if (message.author.bot) {
+          return;
+        }
+
+        // Ignore DMs
+        if (!message.guild) {
+          return;
+        }
+
+        // Make sure the member exists
+        const member = message.member;
+
+        if (!member) {
+          return;
+        }
+
+        // --------------------------------------------------
+        // XP COOLDOWN
+        // --------------------------------------------------
+
+        const cooldownKey =
+          `${message.guild.id}:${message.author.id}`;
+
+        const now = Date.now();
+
+        const lastXPTime =
+          this.levelingCooldowns.get(cooldownKey);
+
+        if (
+          lastXPTime &&
+          now - lastXPTime < XP_COOLDOWN
+        ) {
+          return;
+        }
+
+        // --------------------------------------------------
+        // CREATE GUILD DATA
+        // --------------------------------------------------
+
+        if (
+          !this.levelingData[message.guild.id]
+        ) {
+          this.levelingData[message.guild.id] = {};
+        }
+
+        // --------------------------------------------------
+        // CREATE USER DATA
+        // --------------------------------------------------
+
+        if (
+          !this.levelingData[
+            message.guild.id
+          ][message.author.id]
+        ) {
+          this.levelingData[
+            message.guild.id
+          ][message.author.id] = {
+            xp: 0,
+            level: 1,
+          };
+        }
+
+        const userData =
+          this.levelingData[
+            message.guild.id
+          ][message.author.id];
+
+        const oldLevel =
+          Number(userData.level) || 1;
+
+        const oldXP =
+          Number(userData.xp) || 0;
+
+        // --------------------------------------------------
+        // GIVE XP
+        // --------------------------------------------------
+
+        const gainedXP =
+          getRandomXP();
+
+        const newXP =
+          oldXP + gainedXP;
+
+        userData.xp =
+          newXP;
+
+        // --------------------------------------------------
+        // CALCULATE LEVEL
+        // --------------------------------------------------
+
+        const newLevel =
+          calculateLevel(newXP);
+
+        userData.level =
+          newLevel;
+
+        // Start cooldown only after XP was successfully given
+        this.levelingCooldowns.set(
+          cooldownKey,
+          now
+        );
+
+        // --------------------------------------------------
+        // SAVE
+        // --------------------------------------------------
+
+        this.saveLevelingData();
+
+        logger.info(
+          `${message.author.tag} earned ${gainedXP} XP (${newXP} total) in ${message.guild.name}`
+        );
+
+        // --------------------------------------------------
+        // NO LEVEL UP
+        // --------------------------------------------------
+
+        if (
+          newLevel <= oldLevel
+        ) {
+          return;
+        }
+
+        // --------------------------------------------------
+        // UPDATE LEVEL ROLES
+        // --------------------------------------------------
+
+        await this.updateLevelRoles(
+          member,
+          newLevel
+        );
+
+        // --------------------------------------------------
+        // LEVEL ANNOUNCEMENTS
+        // --------------------------------------------------
+
+        for (
+          const milestone
+          of ANNOUNCEMENT_LEVELS
+        ) {
+
+          if (
+            newLevel >= milestone &&
+            oldLevel < milestone
+          ) {
+
+            await message.channel.send(
+              `.⋆♱ <@${message.author.id}> 𝚑𝚊𝚜 𝚛𝚎𝚊𝚌𝚑𝚎𝚍 𝚕𝚎𝚟𝚎𝚕 **${milestone}**.`
+            );
+
+          }
+
+        }
+
+      } catch (error) {
+
+        logger.error(
+          'Error processing leveling message:',
+          error
+        );
+
+      }
+
+    }
+  );
+
+}
 
           // --------------------------------------------------
           // Ignore bots
