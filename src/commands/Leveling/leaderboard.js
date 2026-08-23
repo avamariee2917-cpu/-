@@ -1,37 +1,4 @@
 import { SlashCommandBuilder } from 'discord.js';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const LEVELING_FILE = path.join(
-  __dirname,
-  '../../data/leveling.json'
-);
-
-function loadLevelingData() {
-  try {
-    if (!fs.existsSync(LEVELING_FILE)) {
-      return {};
-    }
-
-    const rawData = fs.readFileSync(
-      LEVELING_FILE,
-      'utf8'
-    );
-
-    if (!rawData.trim()) {
-      return {};
-    }
-
-    return JSON.parse(rawData);
-  } catch (error) {
-    console.error('Failed to load leveling data:', error);
-    return {};
-  }
-}
 
 export default {
   data: new SlashCommandBuilder()
@@ -46,56 +13,63 @@ export default {
       });
     }
 
-    const levelingData = loadLevelingData();
+    const client = interaction.client;
+    const guildId = interaction.guild.id;
 
     const guildData =
-      levelingData[interaction.guild.id] || {};
+      client.levelingData?.[guildId] || {};
 
-    const users = Object.entries(guildData)
-      .filter(([userId, data]) => {
-        return (
-          userId &&
-          data &&
-          typeof data.xp === 'number'
-        );
-      })
-      .sort(([, userA], [, userB]) => {
-        return (
-          (userB.xp || 0) -
-          (userA.xp || 0)
-        );
+    const members = await interaction.guild.members
+      .fetch()
+      .catch(() => interaction.guild.members.cache);
+
+    const users = [];
+
+    for (const [, member] of members) {
+      if (member.user.bot) {
+        continue;
+      }
+
+      const data = guildData[member.id] || {};
+
+      const xp =
+        typeof data.xp === 'number'
+          ? data.xp
+          : 0;
+
+      const level =
+        typeof data.level === 'number'
+          ? data.level
+          : 1;
+
+      users.push({
+        id: member.id,
+        username: member.user.username,
+        level,
+        xp
       });
+    }
+
+    users.sort((a, b) => {
+      if (b.level !== a.level) {
+        return b.level - a.level;
+      }
+
+      return b.xp - a.xp;
+    });
 
     if (users.length === 0) {
       return interaction.reply({
-        content:
-          'There are currently no users on the leveling leaderboard.',
+        content: 'There are no human members to display on the leaderboard.',
         ephemeral: false
       });
     }
 
     const topUsers = users.slice(0, 10);
 
-    const lines = [];
-
-    for (let i = 0; i < topUsers.length; i++) {
-      const [userId, data] = topUsers[i];
-
-      const level = data.level || 1;
-      const xp = data.xp || 0;
-
-      const user = await interaction.client.users
-        .fetch(userId)
-        .catch(() => null);
-
-      const username =
-        user?.username ||
-        `Unknown User`;
-
-      lines.push(
-        `**${i + 1}.** ${username} — Level **${level}** — **${xp} XP**`
-      );
-    }
+    const lines = topUsers.map((user, index) => {
+      return `${index + 1}. <@${user.id}> — Level **${user.level}** — **${user.xp} XP**`;
+    });
 
     return interaction.reply({
       content:
