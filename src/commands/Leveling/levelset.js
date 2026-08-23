@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 
 const LEVEL_ROLES = {
   5: '1532968053120307301',
@@ -11,7 +11,7 @@ const LEVEL_ROLES = {
   70: '1532969466353160232',
   80: '1532969543100793002',
   90: '1532969608452116601',
-  100: '1532974501900451890'
+  100: '1532974501900451890',
 };
 
 const MAX_LEVEL = 100;
@@ -19,134 +19,243 @@ const MAX_LEVEL = 100;
 export default {
   data: new SlashCommandBuilder()
     .setName('setlevel')
-    .setDescription("Set a user's level.")
+    .setDescription('Set a member to a specific leveling level.')
     .addUserOption(option =>
       option
         .setName('user')
-        .setDescription('The user whose level you want to change.')
+        .setDescription('The member whose level you want to change.')
         .setRequired(true)
     )
     .addIntegerOption(option =>
       option
         .setName('level')
-        .setDescription('The level to give the user.')
+        .setDescription('The level to set the member to.')
+        .setRequired(true)
         .setMinValue(1)
         .setMaxValue(MAX_LEVEL)
-        .setRequired(true)
-    ),
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction) {
-    if (!interaction.guild) {
-      return interaction.reply({
-        content: 'This command can only be used in a server.',
-        ephemeral: true
-      });
-    }
-
-    const client = interaction.client;
-
-    if (!client.levelingData) {
-      client.levelingData = {};
-    }
-
-    const guildId = interaction.guild.id;
-    const targetUser = interaction.options.getUser('user');
-    const targetMember = await interaction.guild.members
-      .fetch(targetUser.id)
-      .catch(() => null);
-
-    if (!targetMember) {
-      return interaction.reply({
-        content: 'That user is not currently a member of this server.',
-        ephemeral: true
-      });
-    }
-
-    const level = interaction.options.getInteger('level');
-
-    if (!client.levelingData[guildId]) {
-      client.levelingData[guildId] = {};
-    }
-
     /*
-     * Each level requires 100 XP.
+     * Defer immediately.
      *
-     * Level 1 = 0 XP
-     * Level 2 = 100 XP
-     * Level 10 = 900 XP
-     * Level 54 = 5300 XP
+     * This prevents Discord from showing:
+     * "The application did not respond."
      */
-    const xp = (level - 1) * 100;
+    await interaction.deferReply({ ephemeral: true });
 
-    client.levelingData[guildId][targetUser.id] = {
-      xp,
-      level
-    };
+    try {
+      const targetUser = interaction.options.getUser('user');
+      const newLevel = interaction.options.getInteger('level');
 
-    /*
-     * Give every leveling role at or below
-     * the user's new level.
-     */
-    const roleLevels = Object.keys(LEVEL_ROLES)
-      .map(Number)
-      .sort((a, b) => a - b);
+      if (!interaction.guild) {
+        return interaction.editReply(
+          'This command can only be used inside a server.'
+        );
+      }
 
-    const qualifyingRoleIds = roleLevels
-      .filter(roleLevel => roleLevel <= level)
-      .map(roleLevel => LEVEL_ROLES[roleLevel]);
+      const member = await interaction.guild.members
+        .fetch(targetUser.id)
+        .catch(() => null);
 
-    /*
-     * Remove leveling roles that the user
-     * should no longer have.
-     */
-    for (const roleLevel of roleLevels) {
-      const roleId = LEVEL_ROLES[roleLevel];
+      if (!member) {
+        return interaction.editReply(
+          'I could not find that member in this server.'
+        );
+      }
 
-      if (roleLevel > level && targetMember.roles.cache.has(roleId)) {
-        try {
-          await targetMember.roles.remove(
-            roleId,
-            `Level manually set to ${level}`
-          );
-        } catch (error) {
-          console.error(
-            `Failed to remove level ${roleLevel} role:`,
-            error
-          );
+      /*
+       * Find the bot's highest role.
+       *
+       * Discord cannot give/remove roles that are above
+       * the bot's highest role.
+       */
+      const botMember = interaction.guild.members.me;
+
+      if (!botMember) {
+        return interaction.editReply(
+          'I could not determine my bot permissions.'
+        );
+      }
+
+      /*
+       * Store leveling data.
+       *
+       * This uses the leveling data already loaded by src/app.js.
+       */
+      if (!interaction.client.levelingData) {
+        interaction.client.levelingData = {};
+      }
+
+      if (!interaction.client.levelingData[interaction.guild.id]) {
+        interaction.client.levelingData[interaction.guild.id] = {};
+      }
+
+      if (
+        !interaction.client.levelingData[interaction.guild.id][targetUser.id]
+      ) {
+        interaction.client.levelingData[interaction.guild.id][targetUser.id] = {
+          xp: 0,
+          level: newLevel,
+        };
+      }
+
+      const userData =
+        interaction.client.levelingData[interaction.guild.id][targetUser.id];
+
+      /*
+       * Keep XP consistent with the level.
+       *
+       * Level 1 = 0 XP
+       * Level 2 = 100 XP
+       * Level 10 = 900 XP
+       * Level 54 = 5300 XP
+       *
+       * The user can continue earning XP normally afterward.
+       */
+      userData.level = newLevel;
+      userData.xp = (newLevel - 1) * 100;
+
+      /*
+       * Sort role levels from lowest to highest.
+       */
+      const roleLevels = Object.keys(LEVEL_ROLES)
+        .map(Number)
+        .sort((a, b) => a - b);
+
+      /*
+       * Determine which roles the member SHOULD have.
+       *
+       * Example:
+       * Level 54:
+       * 5, 10, 20, 30, 40, 50
+       *
+       * Level 1:
+       * none
+       *
+       * Level 100:
+       * 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100
+       */
+      const qualifyingLevels = roleLevels.filter(
+        roleLevel => roleLevel <= newLevel
+      );
+
+      const qualifyingRoleIds = new Set(
+        qualifyingLevels.map(level => LEVEL_ROLES[level])
+      );
+
+      /*
+       * First remove every leveling role that the member
+       * should NOT have.
+       */
+      for (const roleLevel of roleLevels) {
+        const roleId = LEVEL_ROLES[roleLevel];
+
+        if (
+          !qualifyingRoleIds.has(roleId) &&
+          member.roles.cache.has(roleId)
+        ) {
+          const role = interaction.guild.roles.cache.get(roleId);
+
+          /*
+           * Make sure the bot is capable of removing the role.
+           */
+          if (!role) {
+            continue;
+          }
+
+          if (role.position >= botMember.roles.highest.position) {
+            continue;
+          }
+
+          try {
+            await member.roles.remove(
+              role,
+              `Level set to ${newLevel}`
+            );
+          } catch (error) {
+            console.error(
+              `Failed to remove level ${roleLevel} role from ${targetUser.tag}:`,
+              error
+            );
+          }
         }
       }
-    }
 
-    /*
-     * Add every role the user qualifies for.
-     */
-    for (const roleId of qualifyingRoleIds) {
-      if (!targetMember.roles.cache.has(roleId)) {
-        try {
-          await targetMember.roles.add(
-            roleId,
-            `Level manually set to ${level}`
-          );
-        } catch (error) {
-          console.error(
-            `Failed to add leveling role ${roleId}:`,
-            error
-          );
+      /*
+       * Now give every role the member qualifies for.
+       */
+      for (const roleLevel of qualifyingLevels) {
+        const roleId = LEVEL_ROLES[roleLevel];
+        const role = interaction.guild.roles.cache.get(roleId);
+
+        if (!role) {
+          continue;
+        }
+
+        /*
+         * If the bot cannot manage the role, don't crash
+         * the entire command.
+         */
+        if (role.position >= botMember.roles.highest.position) {
+          continue;
+        }
+
+        if (!member.roles.cache.has(roleId)) {
+          try {
+            await member.roles.add(
+              role,
+              `Level set to ${newLevel}`
+            );
+          } catch (error) {
+            console.error(
+              `Failed to add level ${roleLevel} role to ${targetUser.tag}:`,
+              error
+            );
+          }
         }
       }
-    }
 
-    /*
-     * Save the leveling data.
-     */
-    if (typeof client.saveLevelingData === 'function') {
-      client.saveLevelingData();
-    }
+      /*
+       * Save leveling data if the save function exists
+       * on the bot.
+       */
+      if (typeof interaction.client.saveLevelingData === 'function') {
+        interaction.client.saveLevelingData();
+      }
 
-    return interaction.reply({
-      content:
-        `Set <@${targetUser.id}>'s level to **${level}** and updated their leveling roles.`,
-      ephemeral: false
-    });
-  }
+      /*
+       * If src/app.js exposes the data file saver differently,
+       * this fallback keeps the command functional as long
+       * as levelingData is already being persisted elsewhere.
+       */
+      const roleNames = qualifyingLevels.length
+        ? qualifyingLevels.join(', ')
+        : 'none';
+
+      await interaction.editReply(
+        `Successfully set ${targetUser} to level **${newLevel}**.\n\n` +
+        `Leveling roles: ${roleNames}`
+      );
+
+    } catch (error) {
+      console.error('Error executing setlevel command:', error);
+
+      /*
+       * Because the interaction was deferred, editReply is
+       * the correct way to respond here.
+       */
+      try {
+        await interaction.editReply(
+          'There was an error while setting that member\'s level.'
+        );
+      } catch (replyError) {
+        console.error(
+          'Could not send setlevel error response:',
+          replyError
+        );
+      }
+    }
+  },
 };
