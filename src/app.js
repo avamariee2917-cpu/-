@@ -83,6 +83,9 @@ const DATA_DIRECTORY =
 const LEVELING_FILE =
   path.join(DATA_DIRECTORY, 'leveling.json');
 
+const NAME_REACTIONS_FILE =
+  path.join(DATA_DIRECTORY, 'nameReactions.json');
+
 
 // ============================================================
 // LEVELING CHANNELS
@@ -133,18 +136,6 @@ const MIN_XP_PER_MESSAGE = 15;
 
 const MAX_XP_PER_MESSAGE = 25;
 
-/*
- * Each member has their own cooldown.
- *
- * Example:
- *
- * You talk → you get XP.
- *
- * Someone else talks → they can also get XP.
- *
- * You talking repeatedly within 60 seconds
- * does not repeatedly award XP.
- */
 const XP_COOLDOWN =
   60 * 1000;
 
@@ -177,26 +168,49 @@ const ANNOUNCEMENT_LEVELS = new Set([
 
 
 // ============================================================
+// NAME REACTION ROLES
+// ============================================================
+
+const BOOSTER_ROLE_1 =
+  '1532269323584802836';
+
+const BOOSTER_ROLE_2 =
+  '1533675708193177700';
+
+const STAFF_ROLE =
+  '1532221464839848016';
+
+const OWNER_ROLE =
+  '1531440557954437273';
+
+
+// ============================================================
 // LEVELING FILE
 // ============================================================
 
 function ensureLevelingFile() {
+
   try {
+
     if (!fs.existsSync(DATA_DIRECTORY)) {
+
       fs.mkdirSync(
         DATA_DIRECTORY,
         {
           recursive: true,
         }
       );
+
     }
 
     if (!fs.existsSync(LEVELING_FILE)) {
+
       fs.writeFileSync(
         LEVELING_FILE,
         JSON.stringify({}, null, 2),
         'utf8'
       );
+
     }
 
   } catch (error) {
@@ -207,6 +221,7 @@ function ensureLevelingFile() {
     );
 
   }
+
 }
 
 
@@ -215,6 +230,7 @@ function ensureLevelingFile() {
 // ============================================================
 
 function loadLevelingData() {
+
   ensureLevelingFile();
 
   try {
@@ -243,6 +259,7 @@ function loadLevelingData() {
       );
 
       return {};
+
     }
 
     return data;
@@ -255,7 +272,9 @@ function loadLevelingData() {
     );
 
     return {};
+
   }
+
 }
 
 
@@ -264,6 +283,7 @@ function loadLevelingData() {
 // ============================================================
 
 function saveLevelingDataToFile(data) {
+
   ensureLevelingFile();
 
   try {
@@ -284,7 +304,127 @@ function saveLevelingDataToFile(data) {
     );
 
     return false;
+
   }
+
+}
+
+
+// ============================================================
+// NAME REACTION FILE
+// ============================================================
+
+function ensureNameReactionFile() {
+
+  try {
+
+    if (!fs.existsSync(DATA_DIRECTORY)) {
+
+      fs.mkdirSync(
+        DATA_DIRECTORY,
+        {
+          recursive: true,
+        }
+      );
+
+    }
+
+    if (!fs.existsSync(NAME_REACTIONS_FILE)) {
+
+      fs.writeFileSync(
+        NAME_REACTIONS_FILE,
+        JSON.stringify({}, null, 2),
+        'utf8'
+      );
+
+    }
+
+  } catch (error) {
+
+    logger.error(
+      'Failed to create name reaction file:',
+      error
+    );
+
+  }
+
+}
+
+
+function loadNameReactionData() {
+
+  ensureNameReactionFile();
+
+  try {
+
+    const rawData =
+      fs.readFileSync(
+        NAME_REACTIONS_FILE,
+        'utf8'
+      );
+
+    if (!rawData.trim()) {
+      return {};
+    }
+
+    const data =
+      JSON.parse(rawData);
+
+    if (
+      typeof data !== 'object' ||
+      data === null ||
+      Array.isArray(data)
+    ) {
+
+      logger.warn(
+        'Invalid name reaction data detected. Starting fresh.'
+      );
+
+      return {};
+
+    }
+
+    return data;
+
+  } catch (error) {
+
+    logger.error(
+      'Failed to load name reaction data:',
+      error
+    );
+
+    return {};
+
+  }
+
+}
+
+
+function saveNameReactionDataToFile(data) {
+
+  ensureNameReactionFile();
+
+  try {
+
+    fs.writeFileSync(
+      NAME_REACTIONS_FILE,
+      JSON.stringify(data, null, 2),
+      'utf8'
+    );
+
+    return true;
+
+  } catch (error) {
+
+    logger.error(
+      'Failed to save name reaction data:',
+      error
+    );
+
+    return false;
+
+  }
+
 }
 
 
@@ -306,6 +446,7 @@ function calculateLevel(xp) {
       safeXP / XP_PER_LEVEL
     ) + 1
   );
+
 }
 
 
@@ -323,6 +464,7 @@ function getRandomXP() {
         1
       )
   ) + MIN_XP_PER_MESSAGE;
+
 }
 
 
@@ -404,26 +546,33 @@ class TitanBot extends Client {
       loadLevelingData();
 
 
-    /*
-     * Individual XP cooldowns.
-     *
-     * Key:
-     *
-     * guildId:userId
-     */
     this.levelingCooldowns =
       new Map();
 
 
-    /*
-     * Make saveLevelingData available
-     * to all leveling commands.
-     */
     this.saveLevelingData =
       () => {
 
         return saveLevelingDataToFile(
           this.levelingData
+        );
+
+      };
+
+
+    // ========================================================
+    // NAME REACTION DATA
+    // ========================================================
+
+    this.nameReactionData =
+      loadNameReactionData();
+
+
+    this.saveNameReactionData =
+      () => {
+
+        return saveNameReactionDataToFile(
+          this.nameReactionData
         );
 
       };
@@ -576,6 +725,18 @@ class TitanBot extends Client {
 
 
       // ------------------------------------------------------
+      // NAME REACTIONS
+      // ------------------------------------------------------
+
+      this.setupNameReactionSystem();
+
+
+      startupLog(
+        'Name reaction system loaded'
+      );
+
+
+      // ------------------------------------------------------
       // LOGIN
       // ------------------------------------------------------
 
@@ -648,10 +809,6 @@ class TitanBot extends Client {
 
   setupLevelingSystem() {
 
-    /*
-     * Prevent duplicate leveling listeners if this
-     * method somehow gets called more than once.
-     */
     if (this.levelingSystemInitialized) {
       return;
     }
@@ -728,11 +885,6 @@ class TitanBot extends Client {
             );
 
 
-          /*
-           * This cooldown belongs ONLY to this member.
-           *
-           * Other members have separate cooldowns.
-           */
           if (
             lastXPTime &&
             now - lastXPTime <
@@ -1134,6 +1286,210 @@ class TitanBot extends Client {
       );
 
     }
+
+  }
+
+
+  // ==========================================================
+  // NAME REACTION SYSTEM
+  // ==========================================================
+
+  setupNameReactionSystem() {
+
+    if (this.nameReactionSystemInitialized) {
+      return;
+    }
+
+    this.nameReactionSystemInitialized =
+      true;
+
+
+    this.on(
+      'messageCreate',
+      async message => {
+
+        try {
+
+          // --------------------------------------------------
+          // IGNORE BOTS
+          // --------------------------------------------------
+
+          if (message.author.bot) {
+            return;
+          }
+
+
+          // --------------------------------------------------
+          // IGNORE DMS
+          // --------------------------------------------------
+
+          if (!message.guild) {
+            return;
+          }
+
+
+          // --------------------------------------------------
+          // GET SERVER NAME REACTION DATA
+          // --------------------------------------------------
+
+          const guildData =
+            this.nameReactionData[
+              message.guild.id
+            ];
+
+
+          if (!guildData) {
+            return;
+          }
+
+
+          // --------------------------------------------------
+          // CHECK ALL TRIGGERS
+          // --------------------------------------------------
+
+          for (
+            const [trigger, data]
+            of Object.entries(guildData)
+          ) {
+
+            if (!data) {
+              continue;
+            }
+
+
+            // ------------------------------------------------
+            // TRIGGER MUST MATCH ENTIRE MESSAGE
+            // ------------------------------------------------
+
+            if (
+              message.content
+                .trim()
+                .toLowerCase() !==
+              trigger.toLowerCase()
+            ) {
+              continue;
+            }
+
+
+            // ------------------------------------------------
+            // MEMBER
+            // ------------------------------------------------
+
+            const member =
+              message.member;
+
+
+            if (!member) {
+              continue;
+            }
+
+
+            // ------------------------------------------------
+            // CHECK PERMISSIONS
+            // ------------------------------------------------
+
+            const isOwner =
+              member.roles.cache.has(
+                OWNER_ROLE
+              );
+
+
+            const isStaff =
+              member.roles.cache.has(
+                STAFF_ROLE
+              );
+
+
+            const isBooster =
+              member.roles.cache.has(
+                BOOSTER_ROLE_1
+              ) ||
+              member.roles.cache.has(
+                BOOSTER_ROLE_2
+              );
+
+
+            if (
+              !isOwner &&
+              !isStaff &&
+              !isBooster
+            ) {
+
+              continue;
+
+            }
+
+
+            // ------------------------------------------------
+            // VERIFY THIS TRIGGER BELONGS TO THIS USER
+            // ------------------------------------------------
+
+            if (
+              data.userId !==
+              message.author.id
+            ) {
+
+              continue;
+
+            }
+
+
+            // ------------------------------------------------
+            // EMOJIS
+            // ------------------------------------------------
+
+            const emojis =
+              Array.isArray(data.emojis)
+                ? data.emojis
+                : [];
+
+
+            // ------------------------------------------------
+            // MAXIMUM OF 3 EMOJIS
+            // ------------------------------------------------
+
+            for (
+              const emoji
+              of emojis.slice(0, 3)
+            ) {
+
+              try {
+
+                await message.react(
+                  emoji
+                );
+
+              } catch (error) {
+
+                logger.warn(
+                  `Could not react with ${emoji}:`,
+                  error.message
+                );
+
+              }
+
+            }
+
+
+            // ------------------------------------------------
+            // ONLY ONE TRIGGER PER MESSAGE
+            // ------------------------------------------------
+
+            break;
+
+          }
+
+        } catch (error) {
+
+          logger.error(
+            'Name reaction system error:',
+            error
+          );
+
+        }
+
+      }
+    );
 
   }
 
@@ -1945,6 +2301,28 @@ class TitanBot extends Client {
 
         logger.warn(
           'Could not save leveling data:',
+          error.message
+        );
+
+      }
+
+
+      // ------------------------------------------------------
+      // NAME REACTION DATA
+      // ------------------------------------------------------
+
+      try {
+
+        this.saveNameReactionData();
+
+        logger.info(
+          'Name reaction data saved.'
+        );
+
+      } catch (error) {
+
+        logger.warn(
+          'Could not save name reaction data:',
           error.message
         );
 
