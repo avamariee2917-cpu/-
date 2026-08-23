@@ -1,5 +1,4 @@
-﻿```js
-import 'dotenv/config';
+﻿import 'dotenv/config';
 
 import {
   Client,
@@ -84,9 +83,6 @@ const DATA_DIRECTORY =
 const LEVELING_FILE =
   path.join(DATA_DIRECTORY, 'leveling.json');
 
-const NAME_REACTIONS_FILE =
-  path.join(DATA_DIRECTORY, 'nameReactions.json');
-
 
 // ============================================================
 // LEVELING CHANNELS
@@ -166,23 +162,6 @@ const ANNOUNCEMENT_LEVELS = new Set([
   90,
   100,
 ]);
-
-
-// ============================================================
-// NAME REACTION ROLES
-// ============================================================
-
-const BOOSTER_ROLE_1 =
-  '1532269323584802836';
-
-const BOOSTER_ROLE_2 =
-  '1533675708193177700';
-
-const STAFF_ROLE =
-  '1532221464839848016';
-
-const OWNER_ROLE =
-  '1531440557954437273';
 
 
 // ============================================================
@@ -301,124 +280,6 @@ function saveLevelingDataToFile(data) {
 
     logger.error(
       'Failed to save leveling data:',
-      error
-    );
-
-    return false;
-
-  }
-
-}
-
-
-// ============================================================
-// NAME REACTION FILE
-// ============================================================
-
-function ensureNameReactionFile() {
-
-  try {
-
-    if (!fs.existsSync(DATA_DIRECTORY)) {
-
-      fs.mkdirSync(
-        DATA_DIRECTORY,
-        {
-          recursive: true,
-        }
-      );
-
-    }
-
-    if (!fs.existsSync(NAME_REACTIONS_FILE)) {
-
-      fs.writeFileSync(
-        NAME_REACTIONS_FILE,
-        JSON.stringify({}, null, 2),
-        'utf8'
-      );
-
-    }
-
-  } catch (error) {
-
-    logger.error(
-      'Failed to create name reaction file:',
-      error
-    );
-
-  }
-
-}
-
-
-function loadNameReactionData() {
-
-  ensureNameReactionFile();
-
-  try {
-
-    const rawData =
-      fs.readFileSync(
-        NAME_REACTIONS_FILE,
-        'utf8'
-      );
-
-    if (!rawData.trim()) {
-      return {};
-    }
-
-    const data =
-      JSON.parse(rawData);
-
-    if (
-      typeof data !== 'object' ||
-      data === null ||
-      Array.isArray(data)
-    ) {
-
-      logger.warn(
-        'Invalid name reaction data detected. Starting fresh.'
-      );
-
-      return {};
-
-    }
-
-    return data;
-
-  } catch (error) {
-
-    logger.error(
-      'Failed to load name reaction data:',
-      error
-    );
-
-    return {};
-
-  }
-
-}
-
-
-function saveNameReactionDataToFile(data) {
-
-  ensureNameReactionFile();
-
-  try {
-
-    fs.writeFileSync(
-      NAME_REACTIONS_FILE,
-      JSON.stringify(data, null, 2),
-      'utf8'
-    );
-
-    return true;
-
-  } catch (error) {
-
-    logger.error(
-      'Failed to save name reaction data:',
       error
     );
 
@@ -556,24 +417,6 @@ class TitanBot extends Client {
 
         return saveLevelingDataToFile(
           this.levelingData
-        );
-
-      };
-
-
-    // ========================================================
-    // NAME REACTION DATA
-    // ========================================================
-
-    this.nameReactionData =
-      loadNameReactionData();
-
-
-    this.saveNameReactionData =
-      () => {
-
-        return saveNameReactionDataToFile(
-          this.nameReactionData
         );
 
       };
@@ -722,18 +565,6 @@ class TitanBot extends Client {
 
       startupLog(
         `Level rewards: ${ROLE_LEVELS.length}`
-      );
-
-
-      // ------------------------------------------------------
-      // NAME REACTIONS
-      // ------------------------------------------------------
-
-      this.setupNameReactionSystem();
-
-
-      startupLog(
-        'Name reaction system loaded'
       );
 
 
@@ -1287,309 +1118,6 @@ class TitanBot extends Client {
       );
 
     }
-
-  }
-
-
-  // ==========================================================
-  // NAME REACTION SYSTEM
-  // ==========================================================
-
-  setupNameReactionSystem() {
-
-    if (this.nameReactionSystemInitialized) {
-      return;
-    }
-
-    this.nameReactionSystemInitialized =
-      true;
-
-
-    this.on(
-      'messageCreate',
-      async message => {
-
-        try {
-
-          // --------------------------------------------------
-          // IGNORE BOTS
-          // --------------------------------------------------
-
-          if (message.author.bot) {
-            return;
-          }
-
-
-          // --------------------------------------------------
-          // IGNORE DMS
-          // --------------------------------------------------
-
-          if (!message.guild) {
-            return;
-          }
-
-
-          // --------------------------------------------------
-          // MEMBER
-          // --------------------------------------------------
-
-          const member =
-            message.member;
-
-
-          if (!member) {
-            return;
-          }
-
-
-          // --------------------------------------------------
-          // DETERMINE CURRENT NAME REACTION LIMIT
-          // --------------------------------------------------
-
-          let reactionLimit = 0;
-
-
-          // Owner
-          if (
-            member.roles.cache.has(
-              OWNER_ROLE
-            )
-          ) {
-
-            reactionLimit = 3;
-
-          }
-
-
-          // Staff
-          else if (
-            member.roles.cache.has(
-              STAFF_ROLE
-            )
-          ) {
-
-            reactionLimit = 3;
-
-          }
-
-
-          // Two-time booster
-          else if (
-            member.roles.cache.has(
-              BOOSTER_ROLE_2
-            )
-          ) {
-
-            reactionLimit = 3;
-
-          }
-
-
-          // One-time booster
-          else if (
-            member.roles.cache.has(
-              BOOSTER_ROLE_1
-            )
-          ) {
-
-            reactionLimit = 1;
-
-          }
-
-
-          // --------------------------------------------------
-          // NOT ELIGIBLE
-          // --------------------------------------------------
-
-          if (
-            reactionLimit === 0
-          ) {
-
-            return;
-
-          }
-
-
-          // --------------------------------------------------
-          // GET USER'S NAME REACTION DATA
-          // --------------------------------------------------
-
-          const userData =
-            this.nameReactionData[
-              message.author.id
-            ];
-
-
-          if (!userData) {
-            return;
-          }
-
-
-          if (
-            !Array.isArray(
-              userData.reactions
-            )
-          ) {
-
-            return;
-
-          }
-
-
-          // --------------------------------------------------
-          // MESSAGE CONTENT
-          // --------------------------------------------------
-
-          const messageContent =
-            message.content
-              .trim()
-              .toLowerCase();
-
-
-          if (!messageContent) {
-            return;
-          }
-
-
-          // --------------------------------------------------
-          // FIND MATCHING TRIGGER
-          // --------------------------------------------------
-
-          const matchingReaction =
-            userData.reactions.find(
-              reaction => {
-
-                if (
-                  !reaction ||
-                  typeof reaction.trigger !==
-                    'string'
-                ) {
-
-                  return false;
-
-                }
-
-
-                return (
-                  reaction.trigger
-                    .trim()
-                    .toLowerCase() ===
-                  messageContent
-                );
-
-              }
-            );
-
-
-          // --------------------------------------------------
-          // NO MATCH
-          // --------------------------------------------------
-
-          if (!matchingReaction) {
-            return;
-          }
-
-
-          // --------------------------------------------------
-          // GET EMOJIS
-          // --------------------------------------------------
-
-          let emojis = [];
-
-
-          // New format:
-          // emojis: [...]
-          if (
-            Array.isArray(
-              matchingReaction.emojis
-            )
-          ) {
-
-            emojis =
-              matchingReaction.emojis;
-
-          }
-
-
-          // Backwards compatibility:
-          // emoji: "..."
-          else if (
-            matchingReaction.emoji
-          ) {
-
-            emojis = [
-              matchingReaction.emoji,
-            ];
-
-          }
-
-
-          // --------------------------------------------------
-          // NO EMOJIS
-          // --------------------------------------------------
-
-          if (
-            emojis.length === 0
-          ) {
-
-            return;
-
-          }
-
-
-          // --------------------------------------------------
-          // RESPECT CURRENT SLOT LIMIT
-          // --------------------------------------------------
-
-          const emojisToUse =
-            emojis.slice(
-              0,
-              reactionLimit
-            );
-
-
-          // --------------------------------------------------
-          // REACT
-          // --------------------------------------------------
-
-          for (
-            const emoji
-            of emojisToUse
-          ) {
-
-            if (!emoji) {
-              continue;
-            }
-
-
-            try {
-
-              await message.react(
-                emoji
-              );
-
-            } catch (error) {
-
-              logger.warn(
-                `Could not react with ${emoji}:`,
-                error.message
-              );
-
-            }
-
-          }
-
-        } catch (error) {
-
-          logger.error(
-            'Name reaction system error:',
-            error
-          );
-
-        }
-
-      }
-    );
 
   }
 
@@ -2408,28 +1936,6 @@ class TitanBot extends Client {
 
 
       // ------------------------------------------------------
-      // NAME REACTION DATA
-      // ------------------------------------------------------
-
-      try {
-
-        this.saveNameReactionData();
-
-        logger.info(
-          'Name reaction data saved.'
-        );
-
-      } catch (error) {
-
-        logger.warn(
-          'Could not save name reaction data:',
-          error.message
-        );
-
-      }
-
-
-      // ------------------------------------------------------
       // DATABASE
       // ------------------------------------------------------
 
@@ -2648,4 +2154,3 @@ try {
 
 
 export default TitanBot;
-```
