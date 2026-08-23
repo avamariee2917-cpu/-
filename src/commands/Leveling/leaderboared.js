@@ -9,8 +9,8 @@ export default {
     await interaction.deferReply({ ephemeral: false });
 
     try {
-      const client = interaction.client;
       const guild = interaction.guild;
+      const client = interaction.client;
 
       if (!guild) {
         return interaction.editReply(
@@ -25,58 +25,60 @@ export default {
         client.levelingData = {};
       }
 
-      const guildData =
-        client.levelingData[guild.id] || {};
+      if (!client.levelingData[guild.id]) {
+        client.levelingData[guild.id] = {};
+      }
+
+      const guildLevelingData =
+        client.levelingData[guild.id];
 
       /*
        * Fetch every member in the server.
-       *
-       * This is important because someone who has never
-       * earned XP yet may not exist in levelingData.
        */
-      const members =
-        await guild.members.fetch();
+      const members = await guild.members.fetch();
 
-      const users = [];
+      const leaderboard = [];
 
+      /*
+       * Add EVERY non-bot member.
+       *
+       * Members who have never earned XP are automatically
+       * treated as Level 1 with 0 XP.
+       */
       for (const [, member] of members) {
-        /*
-         * Ignore bots.
-         */
         if (member.user.bot) {
           continue;
         }
 
-        /*
-         * Get this member's saved leveling information.
-         */
         const savedData =
-          guildData[member.id] || {};
-
-        const level =
-          Number.isFinite(savedData.level)
-            ? savedData.level
-            : 1;
+          guildLevelingData[member.id];
 
         const xp =
-          Number.isFinite(savedData.xp)
+          savedData &&
+          typeof savedData.xp === 'number'
             ? savedData.xp
             : 0;
 
-        users.push({
-          userId: member.id,
+        const level =
+          savedData &&
+          typeof savedData.level === 'number'
+            ? savedData.level
+            : 1;
+
+        leaderboard.push({
+          id: member.id,
           level,
           xp,
         });
       }
 
       /*
-       * Sort:
+       * Sort the entire server:
        *
-       * 1. Highest level first
-       * 2. Highest XP second
+       * Highest level first.
+       * If levels are equal, highest XP first.
        */
-      users.sort((a, b) => {
+      leaderboard.sort((a, b) => {
         if (b.level !== a.level) {
           return b.level - a.level;
         }
@@ -85,49 +87,45 @@ export default {
           return b.xp - a.xp;
         }
 
-        return a.userId.localeCompare(b.userId);
+        return a.id.localeCompare(b.id);
       });
 
-      /*
-       * Show the top 50 members.
-       */
-      const topUsers =
-        users.slice(0, 50);
-
-      if (topUsers.length === 0) {
+      if (leaderboard.length === 0) {
         return interaction.editReply(
-          'There are currently no users on the leveling leaderboard.'
+          'There are currently no members on the leveling leaderboard.'
         );
       }
 
       /*
-       * Build leaderboard lines.
+       * Show the top 50 members.
        */
+      const topUsers = leaderboard.slice(0, 50);
+
       const lines = topUsers.map((user, index) => {
         return (
-          `**${index + 1}.** <@${user.userId}>` +
+          `**${index + 1}.** <@${user.id}>` +
           ` — Level **${user.level}**` +
           ` — **${user.xp} XP**`
         );
       });
 
       /*
-       * Discord messages have a character limit.
-       * Split the leaderboard if necessary.
+       * Discord has a message character limit.
+       * Keep the response safely below it.
        */
-      const header = '**Leveling Leaderboard**\n\n';
-
-      let output = header;
+      let response = '**Leveling Leaderboard**\n\n';
 
       for (const line of lines) {
-        if ((output + line + '\n').length > 1900) {
+        if ((response + line + '\n').length > 1900) {
           break;
         }
 
-        output += line + '\n';
+        response += `${line}\n`;
       }
 
-      await interaction.editReply(output.trim());
+      await interaction.editReply(
+        response.trim()
+      );
 
     } catch (error) {
       console.error(
