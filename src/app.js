@@ -71,8 +71,11 @@ import {
 // FILE PATHS
 // ============================================================
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __filename =
+  fileURLToPath(import.meta.url);
+
+const __dirname =
+  path.dirname(__filename);
 
 const DATA_DIRECTORY =
   path.join(__dirname, '../data');
@@ -82,33 +85,38 @@ const LEVELING_FILE =
 
 
 // ============================================================
-// LEVELING CONFIGURATION
+// LEVELING CHANNELS
+// ============================================================
+
+const LEVELING_CHANNELS = new Set([
+  '1531439019529994283',
+  '1531441681893691514',
+  '1531444192214257744',
+  '1531444263953498315',
+  '1531444290054656091',
+  '1531444326339575909',
+  '1532518611812618350',
+  '1533649909839040592',
+  '1533765592925081650',
+]);
+
+
+// ============================================================
+// LEVELING ROLES
 // ============================================================
 
 const LEVEL_ROLES = {
-
   5: '1532968053120307301',
-
   10: '1532969032557396018',
-
   20: '1532969099918053456',
-
   30: '1532969151419650099',
-
   40: '1532969195266904115',
-
   50: '1532969253005951117',
-
   60: '1532969414205509714',
-
   70: '1532969466353160232',
-
   80: '1532969543100793002',
-
   90: '1532969608452116601',
-
   100: '1532974501900451890',
-
 };
 
 const ROLE_LEVELS =
@@ -117,19 +125,43 @@ const ROLE_LEVELS =
     .sort((a, b) => a - b);
 
 
-// XP awarded per eligible message
+// ============================================================
+// LEVELING SETTINGS
+// ============================================================
+
 const MIN_XP_PER_MESSAGE = 15;
+
 const MAX_XP_PER_MESSAGE = 25;
 
-// One XP reward every 30 seconds per member
-const XP_COOLDOWN = 30 * 1000;
+/*
+ * Each member has their own cooldown.
+ *
+ * Example:
+ *
+ * You talk → you get XP.
+ *
+ * Someone else talks → they can also get XP.
+ *
+ * You talking repeatedly within 60 seconds
+ * does not repeatedly award XP.
+ */
+const XP_COOLDOWN =
+  60 * 1000;
 
-const MAX_LEVEL = 100;
+const XP_PER_LEVEL =
+  100;
 
-const XP_PER_LEVEL = 100;
+const MAX_LEVEL =
+  100;
+
+const MAX_XP =
+  (MAX_LEVEL - 1) * XP_PER_LEVEL;
 
 
-// Levels that announce publicly
+// ============================================================
+// LEVEL ANNOUNCEMENTS
+// ============================================================
+
 const ANNOUNCEMENT_LEVELS = new Set([
   10,
   20,
@@ -149,28 +181,22 @@ const ANNOUNCEMENT_LEVELS = new Set([
 // ============================================================
 
 function ensureLevelingFile() {
-
   try {
-
     if (!fs.existsSync(DATA_DIRECTORY)) {
-
       fs.mkdirSync(
         DATA_DIRECTORY,
         {
           recursive: true,
         }
       );
-
     }
 
     if (!fs.existsSync(LEVELING_FILE)) {
-
       fs.writeFileSync(
         LEVELING_FILE,
         JSON.stringify({}, null, 2),
         'utf8'
       );
-
     }
 
   } catch (error) {
@@ -181,7 +207,6 @@ function ensureLevelingFile() {
     );
 
   }
-
 }
 
 
@@ -190,7 +215,6 @@ function ensureLevelingFile() {
 // ============================================================
 
 function loadLevelingData() {
-
   ensureLevelingFile();
 
   try {
@@ -202,9 +226,7 @@ function loadLevelingData() {
       );
 
     if (!rawData.trim()) {
-
       return {};
-
     }
 
     const data =
@@ -217,11 +239,10 @@ function loadLevelingData() {
     ) {
 
       logger.warn(
-        'Invalid leveling data. Resetting to empty data.'
+        'Invalid leveling data detected. Starting fresh.'
       );
 
       return {};
-
     }
 
     return data;
@@ -234,9 +255,7 @@ function loadLevelingData() {
     );
 
     return {};
-
   }
-
 }
 
 
@@ -245,7 +264,6 @@ function loadLevelingData() {
 // ============================================================
 
 function saveLevelingDataToFile(data) {
-
   ensureLevelingFile();
 
   try {
@@ -266,14 +284,12 @@ function saveLevelingDataToFile(data) {
     );
 
     return false;
-
   }
-
 }
 
 
 // ============================================================
-// LEVEL CALCULATIONS
+// LEVEL CALCULATION
 // ============================================================
 
 function calculateLevel(xp) {
@@ -290,27 +306,12 @@ function calculateLevel(xp) {
       safeXP / XP_PER_LEVEL
     ) + 1
   );
-
 }
 
 
-function calculateXPForLevel(level) {
-
-  const safeLevel =
-    Math.max(
-      1,
-      Math.min(
-        MAX_LEVEL,
-        Number(level) || 1
-      )
-    );
-
-  return (
-    safeLevel - 1
-  ) * XP_PER_LEVEL;
-
-}
-
+// ============================================================
+// XP CALCULATION
+// ============================================================
 
 function getRandomXP() {
 
@@ -322,12 +323,11 @@ function getRandomXP() {
         1
       )
   ) + MIN_XP_PER_MESSAGE;
-
 }
 
 
 // ============================================================
-// BOT
+// TITAN BOT
 // ============================================================
 
 class TitanBot extends Client {
@@ -359,21 +359,33 @@ class TitanBot extends Client {
     });
 
 
-    this.config = config;
+    // ========================================================
+    // BASIC BOT DATA
+    // ========================================================
 
-    this.commands = new Collection();
+    this.config =
+      config;
 
-    this.events = new Collection();
+    this.commands =
+      new Collection();
 
-    this.buttons = new Collection();
+    this.events =
+      new Collection();
 
-    this.selectMenus = new Collection();
+    this.buttons =
+      new Collection();
 
-    this.modals = new Collection();
+    this.selectMenus =
+      new Collection();
 
-    this.cooldowns = new Collection();
+    this.modals =
+      new Collection();
 
-    this.db = null;
+    this.cooldowns =
+      new Collection();
+
+    this.db =
+      null;
 
 
     this.rest =
@@ -392,24 +404,35 @@ class TitanBot extends Client {
       loadLevelingData();
 
 
+    /*
+     * Individual XP cooldowns.
+     *
+     * Key:
+     *
+     * guildId:userId
+     */
     this.levelingCooldowns =
       new Map();
 
 
-    // Make saving available to commands
-    this.saveLevelingData = () => {
+    /*
+     * Make saveLevelingData available
+     * to all leveling commands.
+     */
+    this.saveLevelingData =
+      () => {
 
-      return saveLevelingDataToFile(
-        this.levelingData
-      );
+        return saveLevelingDataToFile(
+          this.levelingData
+        );
 
-    };
+      };
 
   }
 
 
   // ==========================================================
-  // START
+  // START BOT
   // ==========================================================
 
   async start() {
@@ -458,7 +481,11 @@ class TitanBot extends Client {
         );
 
         logger.warn(
-          'Data persistence may be disabled.'
+          'Connection: In-Memory Storage'
+        );
+
+        logger.warn(
+          'Data Persistence: DISABLED'
         );
 
       } else {
@@ -474,6 +501,10 @@ class TitanBot extends Client {
       // WEB SERVER
       // ------------------------------------------------------
 
+      startupLog(
+        'Starting web server...'
+      );
+
       this.startWebServer();
 
 
@@ -486,7 +517,9 @@ class TitanBot extends Client {
       );
 
 
-      await loadCommands(this);
+      await loadCommands(
+        this
+      );
 
 
       startupLog(
@@ -498,14 +531,26 @@ class TitanBot extends Client {
       // HANDLERS
       // ------------------------------------------------------
 
+      startupLog(
+        'Loading handlers...'
+      );
+
+
       await this.loadHandlers();
+
+
+      startupLog(
+        'Handlers loaded'
+      );
 
 
       // ------------------------------------------------------
       // MUSIC
       // ------------------------------------------------------
 
-      initializeMusic(this);
+      initializeMusic(
+        this
+      );
 
 
       // ------------------------------------------------------
@@ -517,6 +562,11 @@ class TitanBot extends Client {
 
       startupLog(
         'Leveling system loaded'
+      );
+
+
+      startupLog(
+        `Leveling channels: ${LEVELING_CHANNELS.size}`
       );
 
 
@@ -557,14 +607,24 @@ class TitanBot extends Client {
 
 
       startupLog(
-        'Slash command registration complete'
+        'Slash commands registration complete'
       );
+
+
+      const databaseMode =
+        dbStatus.isDegraded
+          ? 'Optional in-memory mode'
+          : 'Connected';
 
 
       startupLog(
-        `ONLINE | ${this.commands.size} commands loaded`
+        `ONLINE | ${this.commands.size} commands | Database: ${databaseMode}`
       );
 
+
+      // ------------------------------------------------------
+      // CRON
+      // ------------------------------------------------------
 
       this.setupCronJobs();
 
@@ -588,6 +648,18 @@ class TitanBot extends Client {
 
   setupLevelingSystem() {
 
+    /*
+     * Prevent duplicate leveling listeners if this
+     * method somehow gets called more than once.
+     */
+    if (this.levelingSystemInitialized) {
+      return;
+    }
+
+    this.levelingSystemInitialized =
+      true;
+
+
     this.on(
       'messageCreate',
       async message => {
@@ -595,33 +667,38 @@ class TitanBot extends Client {
         try {
 
           // --------------------------------------------------
-          // Ignore bots
+          // IGNORE BOTS
           // --------------------------------------------------
 
-          if (
-            message.author.bot
-          ) {
-
+          if (message.author.bot) {
             return;
-
           }
 
 
           // --------------------------------------------------
-          // Ignore DMs
+          // IGNORE DMS
           // --------------------------------------------------
 
-          if (
-            !message.guild
-          ) {
-
+          if (!message.guild) {
             return;
-
           }
 
 
           // --------------------------------------------------
-          // Make sure member exists
+          // ONLY LEVELING CHANNELS
+          // --------------------------------------------------
+
+          if (
+            !LEVELING_CHANNELS.has(
+              message.channel.id
+            )
+          ) {
+            return;
+          }
+
+
+          // --------------------------------------------------
+          // MEMBER
           // --------------------------------------------------
 
           const member =
@@ -629,14 +706,12 @@ class TitanBot extends Client {
 
 
           if (!member) {
-
             return;
-
           }
 
 
           // --------------------------------------------------
-          // XP COOLDOWN
+          // COOLDOWN
           // --------------------------------------------------
 
           const cooldownKey =
@@ -653,47 +728,57 @@ class TitanBot extends Client {
             );
 
 
+          /*
+           * This cooldown belongs ONLY to this member.
+           *
+           * Other members have separate cooldowns.
+           */
           if (
             lastXPTime &&
             now - lastXPTime <
               XP_COOLDOWN
           ) {
-
             return;
+          }
+
+
+          this.levelingCooldowns.set(
+            cooldownKey,
+            now
+          );
+
+
+          // --------------------------------------------------
+          // GUILD DATA
+          // --------------------------------------------------
+
+          const guildId =
+            message.guild.id;
+
+
+          if (
+            !this.levelingData[guildId]
+          ) {
+
+            this.levelingData[guildId] =
+              {};
 
           }
 
 
           // --------------------------------------------------
-          // CREATE GUILD DATA
+          // USER DATA
           // --------------------------------------------------
 
           if (
-            !this.levelingData[
-              message.guild.id
+            !this.levelingData[guildId][
+              message.author.id
             ]
           ) {
 
-            this.levelingData[
-              message.guild.id
-            ] = {};
-
-          }
-
-
-          // --------------------------------------------------
-          // CREATE USER DATA
-          // --------------------------------------------------
-
-          if (
-            !this.levelingData[
-              message.guild.id
-            ][message.author.id]
-          ) {
-
-            this.levelingData[
-              message.guild.id
-            ][message.author.id] = {
+            this.levelingData[guildId][
+              message.author.id
+            ] = {
 
               xp: 0,
 
@@ -705,37 +790,56 @@ class TitanBot extends Client {
 
 
           const userData =
-            this.levelingData[
-              message.guild.id
-            ][message.author.id];
-
-
-          const oldXP =
-            Number(userData.xp) || 0;
-
-
-          const oldLevel =
-            Number(userData.level) || 1;
+            this.levelingData[guildId][
+              message.author.id
+            ];
 
 
           // --------------------------------------------------
-          // GIVE XP
+          // OLD LEVEL
+          // --------------------------------------------------
+
+          const oldLevel =
+            Math.max(
+              1,
+              Number(userData.level) || 1
+            );
+
+
+          // --------------------------------------------------
+          // GAIN XP
           // --------------------------------------------------
 
           const gainedXP =
             getRandomXP();
 
 
+          const currentXP =
+            Math.max(
+              0,
+              Number(userData.xp) || 0
+            );
+
+
           const newXP =
-            oldXP + gainedXP;
-
-
-          const newLevel =
-            calculateLevel(newXP);
+            Math.min(
+              MAX_XP,
+              currentXP + gainedXP
+            );
 
 
           userData.xp =
             newXP;
+
+
+          // --------------------------------------------------
+          // CALCULATE LEVEL
+          // --------------------------------------------------
+
+          const newLevel =
+            calculateLevel(
+              newXP
+            );
 
 
           userData.level =
@@ -743,37 +847,20 @@ class TitanBot extends Client {
 
 
           // --------------------------------------------------
-          // START COOLDOWN
-          // --------------------------------------------------
-
-          this.levelingCooldowns.set(
-            cooldownKey,
-            now
-          );
-
-
-          // --------------------------------------------------
-          // SAVE
+          // SAVE DATA
           // --------------------------------------------------
 
           this.saveLevelingData();
 
 
-          logger.info(
-            `${message.author.tag} earned ${gainedXP} XP. Total: ${newXP}. Level: ${newLevel}`
-          );
-
-
           // --------------------------------------------------
-          // LEVEL UP
+          // LEVEL DID NOT CHANGE
           // --------------------------------------------------
 
           if (
             newLevel <= oldLevel
           ) {
-
             return;
-
           }
 
 
@@ -788,7 +875,7 @@ class TitanBot extends Client {
 
 
           // --------------------------------------------------
-          // ANNOUNCEMENT
+          // LEVEL ANNOUNCEMENTS
           // --------------------------------------------------
 
           for (
@@ -801,9 +888,20 @@ class TitanBot extends Client {
               oldLevel < milestone
             ) {
 
-              await message.channel.send(
-                `.⋆♱ <@${message.author.id}> 𝚑𝚊𝚜 𝚛𝚎𝚊𝚌𝚑𝚎𝚍 𝚕𝚎𝚟𝚎𝚕 **${milestone}**.`
-              );
+              try {
+
+                await message.channel.send(
+                  `.⋆♱ <@${message.author.id}> 𝚑𝚊𝚜 𝚛𝚎𝚊𝚌𝚑𝚎𝚍 𝚕𝚎𝚟𝚎𝚕 **${milestone}**.`
+                );
+
+              } catch (error) {
+
+                logger.warn(
+                  'Could not send level announcement:',
+                  error.message
+                );
+
+              }
 
             }
 
@@ -825,7 +923,7 @@ class TitanBot extends Client {
 
 
   // ==========================================================
-  // LEVEL ROLE SYSTEM
+  // UPDATE LEVEL ROLES
   // ==========================================================
 
   async updateLevelRoles(
@@ -846,26 +944,35 @@ class TitanBot extends Client {
 
       if (!botMember) {
 
+        logger.warn(
+          'Could not find bot member.'
+        );
+
         return;
 
       }
 
 
-      // Roles the member qualifies for
-      const qualifyingRoles =
-        ROLE_LEVELS
-          .filter(
-            roleLevel =>
-              roleLevel <= level
-          )
-          .map(
-            roleLevel =>
-              LEVEL_ROLES[roleLevel]
-          );
+      // ------------------------------------------------------
+      // QUALIFYING ROLES
+      // ------------------------------------------------------
+
+      const qualifyingRoleIds =
+        new Set(
+          ROLE_LEVELS
+            .filter(
+              roleLevel =>
+                roleLevel <= level
+            )
+            .map(
+              roleLevel =>
+                LEVEL_ROLES[roleLevel]
+            )
+        );
 
 
       // ------------------------------------------------------
-      // REMOVE ROLES ABOVE LEVEL
+      // REMOVE UNQUALIFIED ROLES
       // ------------------------------------------------------
 
       for (
@@ -878,11 +985,11 @@ class TitanBot extends Client {
 
 
         if (
-          roleLevel <= level
+          qualifyingRoleIds.has(
+            roleId
+          )
         ) {
-
           continue;
-
         }
 
 
@@ -891,9 +998,7 @@ class TitanBot extends Client {
             roleId
           )
         ) {
-
           continue;
-
         }
 
 
@@ -904,9 +1009,7 @@ class TitanBot extends Client {
 
 
         if (!role) {
-
           continue;
-
         }
 
 
@@ -916,7 +1019,7 @@ class TitanBot extends Client {
         ) {
 
           logger.warn(
-            `Cannot remove ${role.name}; it is above the bot's highest role.`
+            `Cannot remove ${role.name}; role is above bot.`
           );
 
           continue;
@@ -928,7 +1031,7 @@ class TitanBot extends Client {
 
           await member.roles.remove(
             role,
-            `Level is now ${level}`
+            `Current level is ${level}`
           );
 
         } catch (error) {
@@ -944,22 +1047,33 @@ class TitanBot extends Client {
 
 
       // ------------------------------------------------------
-      // ADD ALL QUALIFYING ROLES
+      // ADD QUALIFYING ROLES
       // ------------------------------------------------------
 
       for (
-        const roleId
-        of qualifyingRoles
+        const roleLevel
+        of ROLE_LEVELS
       ) {
+
+        const roleId =
+          LEVEL_ROLES[roleLevel];
+
+
+        if (
+          !qualifyingRoleIds.has(
+            roleId
+          )
+        ) {
+          continue;
+        }
+
 
         if (
           member.roles.cache.has(
             roleId
           )
         ) {
-
           continue;
-
         }
 
 
@@ -970,6 +1084,10 @@ class TitanBot extends Client {
 
 
         if (!role) {
+
+          logger.warn(
+            `Level ${roleLevel} role ${roleId} not found.`
+          );
 
           continue;
 
@@ -982,7 +1100,7 @@ class TitanBot extends Client {
         ) {
 
           logger.warn(
-            `Cannot add ${role.name}; it is above the bot's highest role.`
+            `Cannot add ${role.name}; role is above bot.`
           );
 
           continue;
@@ -1011,7 +1129,7 @@ class TitanBot extends Client {
     } catch (error) {
 
       logger.error(
-        'Failed to update leveling roles:',
+        `Failed to update roles for ${member.user.tag}:`,
         error
       );
 
@@ -1030,11 +1148,18 @@ class TitanBot extends Client {
       express();
 
 
-    const port =
+    const configuredPort =
       Number(
         this.config.api?.port ||
         process.env.PORT ||
         3000
+      );
+
+
+    const maxPortRetryAttempts =
+      Number(
+        process.env.PORT_RETRY_ATTEMPTS ||
+        5
       );
 
 
@@ -1043,59 +1168,440 @@ class TitanBot extends Client {
       '0.0.0.0';
 
 
-    app.get(
-      '/health',
-      (req, res) => {
+    const corsOrigin =
+      this.config.api?.cors?.origin ||
+      '*';
 
-        res.status(200).json({
 
-          status: 'healthy',
+    // --------------------------------------------------------
+    // CORS
+    // --------------------------------------------------------
 
-          timestamp:
-            new Date().toISOString(),
+    app.use(
+      (req, res, next) => {
 
-          uptime:
-            process.uptime(),
+        const allowedOrigins =
+          Array.isArray(corsOrigin)
+            ? corsOrigin
+            : [corsOrigin];
 
-        });
+
+        const origin =
+          req.headers.origin;
+
+
+        if (
+          allowedOrigins.includes('*') ||
+          allowedOrigins.includes(origin)
+        ) {
+
+          res.header(
+            'Access-Control-Allow-Origin',
+            origin || '*'
+          );
+
+        }
+
+
+        res.header(
+          'Access-Control-Allow-Methods',
+          'GET, POST, OPTIONS'
+        );
+
+
+        res.header(
+          'Access-Control-Allow-Headers',
+          'Content-Type, Authorization'
+        );
+
+
+        if (
+          req.method === 'OPTIONS'
+        ) {
+
+          return res.sendStatus(
+            200
+          );
+
+        }
+
+
+        next();
 
       }
     );
 
+
+    // --------------------------------------------------------
+    // RATE LIMIT
+    // --------------------------------------------------------
+
+    const requestCounts =
+      new Map();
+
+
+    const windowMs =
+      this.config.api?.rateLimit?.windowMs ||
+      60000;
+
+
+    const maxRequests =
+      this.config.api?.rateLimit?.max ||
+      100;
+
+
+    app.use(
+      (req, res, next) => {
+
+        const ip =
+          req.ip;
+
+
+        const now =
+          Date.now();
+
+
+        const windowStart =
+          now - windowMs;
+
+
+        if (
+          !requestCounts.has(ip)
+        ) {
+
+          requestCounts.set(
+            ip,
+            []
+          );
+
+        }
+
+
+        const times =
+          requestCounts
+            .get(ip)
+            .filter(
+              time =>
+                time > windowStart
+            );
+
+
+        if (
+          times.length >=
+          maxRequests
+        ) {
+
+          return res
+            .status(429)
+            .json({
+              error:
+                'Too many requests',
+            });
+
+        }
+
+
+        times.push(
+          now
+        );
+
+
+        requestCounts.set(
+          ip,
+          times
+        );
+
+
+        next();
+
+      }
+    );
+
+
+    // --------------------------------------------------------
+    // HEALTH
+    // --------------------------------------------------------
+
+    app.get(
+      '/health',
+      (req, res) => {
+
+        const dbStatus =
+          this.db?.getStatus?.() ||
+          {
+            isDegraded:
+              'unknown',
+          };
+
+
+        res
+          .status(200)
+          .json({
+
+            status:
+              'healthy',
+
+            timestamp:
+              new Date().toISOString(),
+
+            uptime:
+              process.uptime(),
+
+            database: {
+
+              connected:
+                dbStatus.connectionType !==
+                'none',
+
+              degraded:
+                dbStatus.isDegraded,
+
+              type:
+                dbStatus.connectionType,
+
+            },
+
+          });
+
+      }
+    );
+
+
+    // --------------------------------------------------------
+    // READY
+    // --------------------------------------------------------
+
+    app.get(
+      '/ready',
+      (req, res) => {
+
+        const dbStatus =
+          this.db?.getStatus?.() ||
+          {
+            isDegraded: true,
+            connectionType: 'none',
+          };
+
+
+        const isReady =
+          this.isReady() &&
+          !dbStatus.isDegraded;
+
+
+        const metrics = {
+
+          guildCount:
+            this.guilds?.cache?.size ??
+            0,
+
+          commandCount:
+            this.commands?.size ??
+            0,
+
+          database: {
+
+            mode:
+              dbStatus.connectionType,
+
+            degraded:
+              dbStatus.isDegraded,
+
+            degradedReason:
+              dbStatus.degradedReason ??
+              null,
+
+          },
+
+          schemaVersion:
+            EXPECTED_SCHEMA_VERSION,
+
+          schemaLabel:
+            EXPECTED_SCHEMA_LABEL,
+
+        };
+
+
+        if (isReady) {
+
+          return res
+            .status(200)
+            .json({
+
+              ready:
+                true,
+
+              message:
+                'Bot is ready',
+
+              metrics,
+
+            });
+
+        }
+
+
+        res
+          .status(503)
+          .json({
+
+            ready:
+              false,
+
+            reason:
+              !this.isReady()
+                ? 'Bot not Ready'
+                : 'Database degraded',
+
+            metrics,
+
+          });
+
+      }
+    );
+
+
+    // --------------------------------------------------------
+    // ROOT
+    // --------------------------------------------------------
 
     app.get(
       '/',
       (req, res) => {
 
-        res.status(200).json({
+        res
+          .status(200)
+          .json({
 
-          message:
-            'TitanBot System Online',
+            message:
+              'TitanBot System Online',
 
-          version:
-            pkg.version,
+            version:
+              pkg.version,
 
-          timestamp:
-            new Date().toISOString(),
+            timestamp:
+              new Date().toISOString(),
 
-        });
+          });
 
       }
     );
 
 
-    this.webServer =
-      app.listen(
-        port,
-        host,
-        () => {
+    // --------------------------------------------------------
+    // START SERVER
+    // --------------------------------------------------------
 
-          startupLog(
-            `Web Server running on ${host}:${port}`
+    const startServer =
+      (
+        port,
+        attempt = 0
+      ) => {
+
+        let hasStartedListening =
+          false;
+
+
+        const server =
+          app.listen(
+            port,
+            host,
+            () => {
+
+              hasStartedListening =
+                true;
+
+
+              this.webServer =
+                server;
+
+
+              startupLog(
+                `Web Server running on ${host}:${port}`
+              );
+
+
+              startupLog(
+                `Health endpoint: http://${host}:${port}/health`
+              );
+
+
+              startupLog(
+                `Ready endpoint: http://${host}:${port}/ready`
+              );
+
+            }
           );
 
-        }
-      );
+
+        server.on(
+          'error',
+          error => {
+
+            const errorCode =
+              error?.code ||
+              'UNKNOWN_ERROR';
+
+
+            const errorMessage =
+              error?.message ||
+              'Unknown server error';
+
+
+            if (
+              !hasStartedListening &&
+              errorCode ===
+                'EADDRINUSE' &&
+              attempt <
+                maxPortRetryAttempts
+            ) {
+
+              const nextPort =
+                port + 1;
+
+
+              startupLog(
+                `Port ${port} is already in use. Trying port ${nextPort}...`
+              );
+
+
+              setTimeout(
+                () =>
+                  startServer(
+                    nextPort,
+                    attempt + 1
+                  ),
+                250
+              );
+
+
+              return;
+
+            }
+
+
+            logger.error(
+              `Web server error on port ${port} (${errorCode}): ${errorMessage}`
+            );
+
+
+            if (
+              !hasStartedListening
+            ) {
+
+              process.exit(1);
+
+            }
+
+          }
+        );
+
+      };
+
+
+    startServer(
+      configuredPort,
+      0
+    );
 
   }
 
@@ -1139,12 +1645,16 @@ class TitanBot extends Client {
 
 
   // ==========================================================
-  // COUNTERS
+  // SERVER COUNTERS
   // ==========================================================
 
   async updateAllCounters() {
 
     if (!this.db) {
+
+      logger.warn(
+        'Database not available for counter updates'
+      );
 
       return;
 
@@ -1165,7 +1675,11 @@ class TitanBot extends Client {
           );
 
 
-        const validCounters = [];
+        const validCounters =
+          [];
+
+        const orphanedCounters =
+          [];
 
 
         for (
@@ -1174,54 +1688,60 @@ class TitanBot extends Client {
         ) {
 
           if (
-            !counter ||
-            !counter.type ||
-            !counter.channelId ||
-            counter.enabled === false
+            counter &&
+            counter.type &&
+            counter.channelId &&
+            counter.enabled !== false
           ) {
 
-            continue;
+            const channel =
+              guild.channels.cache.get(
+                counter.channelId
+              );
+
+
+            if (channel) {
+
+              validCounters.push(
+                counter
+              );
+
+
+              await updateCounter(
+                this,
+                guild,
+                counter
+              );
+
+            } else {
+
+              orphanedCounters.push(
+                counter
+              );
+
+            }
 
           }
-
-
-          const channel =
-            guild.channels.cache.get(
-              counter.channelId
-            );
-
-
-          if (!channel) {
-
-            continue;
-
-          }
-
-
-          validCounters.push(
-            counter
-          );
-
-
-          await updateCounter(
-            this,
-            guild,
-            counter
-          );
 
         }
 
 
-        await saveServerCounters(
-          this,
-          guildId,
-          validCounters
-        );
+        if (
+          orphanedCounters.length > 0
+        ) {
+
+          await saveServerCounters(
+            this,
+            guildId,
+            validCounters
+          );
+
+        }
 
       } catch (error) {
 
         logger.error(
-          `Counter update error for guild ${guildId}:`,
+          `Error updating counters for guild ${guildId}:`,
           error
         );
 
@@ -1233,7 +1753,7 @@ class TitanBot extends Client {
 
 
   // ==========================================================
-  // HANDLERS
+  // LOAD HANDLERS
   // ==========================================================
 
   async loadHandlers() {
@@ -1242,11 +1762,13 @@ class TitanBot extends Client {
 
       {
         path: 'events',
+        type: 'default',
         required: true,
       },
 
       {
         path: 'interactions',
+        type: 'default',
         required: true,
       },
 
@@ -1260,30 +1782,47 @@ class TitanBot extends Client {
 
       try {
 
+        startupLog(
+          `Loading handler: ${handler.path}`
+        );
+
+
         const module =
           await import(
             `./handlers/loaders/${handler.path}.js`
           );
 
 
-        const loader =
-          module.default;
+        const loaderFn =
+          handler.type.startsWith(
+            'named:'
+          )
+            ? module[
+                handler.type.split(':')[1]
+              ]
+            : module.default;
 
 
         if (
-          typeof loader !==
+          typeof loaderFn !==
           'function'
         ) {
 
           throw new Error(
-            `Invalid loader for ${handler.path}`
+            `Invalid loader export from ${handler.path}`
           );
 
         }
 
 
-        await loader(this);
+        await loaderFn(
+          this
+        );
 
+
+        startupLog(
+          `Loaded ${handler.path}`
+        );
 
       } catch (error) {
 
@@ -1292,9 +1831,10 @@ class TitanBot extends Client {
         ) {
 
           logger.error(
-            `Failed to load ${handler.path}:`,
+            `Failed to load required handler ${handler.path}:`,
             error
           );
+
 
           throw error;
 
@@ -1344,13 +1884,16 @@ class TitanBot extends Client {
   ) {
 
     shutdownLog(
-      `Bot shutting down (${reason})...`
+      `Bot is shutting down (${reason})...`
     );
 
 
     try {
 
-      // Stop cron jobs
+      // ------------------------------------------------------
+      // CRON
+      // ------------------------------------------------------
+
       cron
         .getTasks()
         .forEach(
@@ -1359,17 +1902,19 @@ class TitanBot extends Client {
         );
 
 
-      // Stop music
+      // ------------------------------------------------------
+      // MUSIC
+      // ------------------------------------------------------
+
       await shutdownMusic(
         this
       );
 
 
-      // Save leveling data
-      this.saveLevelingData();
+      // ------------------------------------------------------
+      // WEB SERVER
+      // ------------------------------------------------------
 
-
-      // Close web server
       if (
         this.webServer
       ) {
@@ -1384,19 +1929,63 @@ class TitanBot extends Client {
       }
 
 
-      // Close database
-      if (
-        this.db &&
-        this.db.db &&
-        this.db.db.pool
-      ) {
+      // ------------------------------------------------------
+      // LEVELING DATA
+      // ------------------------------------------------------
 
-        await this.db.db.pool.end();
+      try {
+
+        this.saveLevelingData();
+
+        logger.info(
+          'Leveling data saved.'
+        );
+
+      } catch (error) {
+
+        logger.warn(
+          'Could not save leveling data:',
+          error.message
+        );
 
       }
 
 
-      // Destroy Discord client
+      // ------------------------------------------------------
+      // DATABASE
+      // ------------------------------------------------------
+
+      if (
+        this.db &&
+        this.db.db
+      ) {
+
+        try {
+
+          if (
+            this.db.db.pool
+          ) {
+
+            await this.db.db.pool.end();
+
+          }
+
+        } catch (error) {
+
+          logger.warn(
+            'Error closing database:',
+            error.message
+          );
+
+        }
+
+      }
+
+
+      // ------------------------------------------------------
+      // DISCORD
+      // ------------------------------------------------------
+
       if (
         this.isReady()
       ) {
@@ -1416,9 +2005,10 @@ class TitanBot extends Client {
     } catch (error) {
 
       logger.error(
-        'Shutdown error:',
+        'Error during graceful shutdown:',
         error
       );
+
 
       process.exit(1);
 
@@ -1430,7 +2020,7 @@ class TitanBot extends Client {
 
 
 // ============================================================
-// START BOT
+// BOT STARTUP
 // ============================================================
 
 try {
@@ -1438,6 +2028,10 @@ try {
   const bot =
     new TitanBot();
 
+
+  // ----------------------------------------------------------
+  // SHUTDOWN HANDLERS
+  // ----------------------------------------------------------
 
   process.on(
     'SIGTERM',
@@ -1456,6 +2050,10 @@ try {
       )
   );
 
+
+  // ----------------------------------------------------------
+  // UNCAUGHT EXCEPTION
+  // ----------------------------------------------------------
 
   process.on(
     'uncaughtException',
@@ -1477,6 +2075,10 @@ try {
     }
   );
 
+
+  // ----------------------------------------------------------
+  // UNHANDLED REJECTION
+  // ----------------------------------------------------------
 
   process.on(
     'unhandledRejection',
@@ -1531,13 +2133,17 @@ try {
   );
 
 
+  // ----------------------------------------------------------
+  // START
+  // ----------------------------------------------------------
+
   bot
     .start()
     .catch(
       error => {
 
         logger.error(
-          'Fatal startup error:',
+          'Fatal error during bot startup:',
           error
         );
 
@@ -1553,9 +2159,10 @@ try {
 } catch (error) {
 
   logger.error(
-    'Fatal bot startup error:',
+    'Fatal error during bot startup:',
     error
   );
+
 
   process.exit(1);
 
