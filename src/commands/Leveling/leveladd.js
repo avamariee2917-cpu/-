@@ -1,81 +1,88 @@
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } from 'discord.js';
-import { logger } from '../../utils/logger.js';
-import { TitanBotError, ErrorTypes } from '../../utils/errorHandler.js';
-import { checkUserPermissions } from '../../utils/permissionGuard.js';
-import { addLevels, getLevelingConfig } from '../../services/leveling/leveling.js';
-import { createEmbed } from '../../utils/embeds.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 
-import { InteractionHelper } from '../../utils/interactionHelper.js';
 export default {
   data: new SlashCommandBuilder()
-    .setName('leveladd')
-    .setDescription('Add levels to a user')
-    .addUserOption((option) =>
+    .setName('setlevel')
+    .setDescription('Set a user\'s level.')
+    .addUserOption(option =>
       option
         .setName('user')
-        .setDescription('The user to add levels to')
+        .setDescription('The user whose level you want to change.')
         .setRequired(true)
     )
-    .addIntegerOption((option) =>
+    .addIntegerOption(option =>
       option
-        .setName('levels')
-        .setDescription('Number of levels to add')
-        .setRequired(true)
+        .setName('level')
+        .setDescription('The level to give the user.')
         .setMinValue(1)
+        .setMaxValue(100)
+        .setRequired(true)
     )
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .setDMPermission(false),
-  category: 'Leveling',
+    .setDefaultMemberPermissions(
+      PermissionFlagsBits.Administrator.toString()
+    ),
 
-  async execute(interaction, config, client) {
-    await InteractionHelper.safeDefer(interaction);
+  async execute(interaction) {
+    const target = interaction.options.getUser('user');
+    const level = interaction.options.getInteger('level');
+    const client = interaction.client;
 
-    const hasPermission = await checkUserPermissions(
-      interaction,
-      PermissionFlagsBits.ManageGuild,
-      'You need ManageGuild permission to use this command.'
-    );
-    if (!hasPermission) return;
-
-    const levelingConfig = await getLevelingConfig(client, interaction.guildId);
-    if (!levelingConfig?.enabled) {
-      await InteractionHelper.safeEditReply(interaction, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor('#f1c40f')
-            .setDescription('The leveling system is currently disabled on this server.')
-        ],
-        flags: MessageFlags.Ephemeral
-      });
-      return;
+    if (!client.levelingData[interaction.guild.id]) {
+      client.levelingData[interaction.guild.id] = {};
     }
 
-    const targetUser = interaction.options.getUser('user');
-    const levelsToAdd = interaction.options.getInteger('levels');
+    const xp = (level - 1) * 100;
 
-    const member = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
-    if (!member) {
-      throw new TitanBotError(
-        `User ${targetUser.id} not found in this guild`,
-        ErrorTypes.USER_INPUT,
-        'The specified user is not in this server.'
-      );
+    client.levelingData[interaction.guild.id][target.id] = {
+      xp,
+      level
+    };
+
+    if (typeof client.saveLevelingData === 'function') {
+      client.saveLevelingData();
     }
 
-    const userData = await addLevels(client, interaction.guildId, targetUser.id, levelsToAdd);
+    const member =
+      await interaction.guild.members
+        .fetch(target.id)
+        .catch(() => null);
 
-    await InteractionHelper.safeEditReply(interaction, {
-      embeds: [
-        createEmbed({
-          title: 'Levels Added',
-          description: `Successfully added ${levelsToAdd} levels to ${targetUser.tag}.\n**New Level:** ${userData.level}`,
-          color: 'success'
-        })
-      ]
+    if (member && level >= 5) {
+      const availableLevels = Object.keys(client.levelRoles || {})
+        .map(Number)
+        .filter(lvl => lvl <= level)
+        .sort((a, b) => b - a);
+
+      const highestLevel = availableLevels[0];
+
+      if (highestLevel) {
+        const roleId = client.levelRoles[highestLevel];
+
+        if (roleId && !member.roles.cache.has(roleId)) {
+          await member.roles.add(
+            roleId,
+            `Set to level ${level}`
+          );
+        }
+
+        const allLevelRoles =
+          Object.values(client.levelRoles || {});
+
+        for (const oldRoleId of allLevelRoles) {
+          if (
+            oldRoleId !== roleId &&
+            member.roles.cache.has(oldRoleId)
+          ) {
+            await member.roles.remove(oldRoleId).catch(() => {});
+          }
+        }
+      }
+    }
+
+    return interaction.reply({
+      content:
+        `${target}'s level has been set to **${level}**.`,
+      ephemeral: false
     });
-
-    logger.info(
-      `[ADMIN] User ${interaction.user.tag} added ${levelsToAdd} levels to ${targetUser.tag} in guild ${interaction.guildId}`
-    );
   }
 };
