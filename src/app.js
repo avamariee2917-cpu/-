@@ -1,4 +1,5 @@
-﻿import 'dotenv/config';
+﻿```js
+import 'dotenv/config';
 
 import {
   Client,
@@ -1329,153 +1330,252 @@ class TitanBot extends Client {
 
 
           // --------------------------------------------------
-          // GET SERVER NAME REACTION DATA
+          // MEMBER
           // --------------------------------------------------
 
-          const guildData =
-            this.nameReactionData[
-              message.guild.id
-            ];
+          const member =
+            message.member;
 
 
-          if (!guildData) {
+          if (!member) {
             return;
           }
 
 
           // --------------------------------------------------
-          // CHECK ALL TRIGGERS
+          // DETERMINE CURRENT NAME REACTION LIMIT
           // --------------------------------------------------
 
-          for (
-            const [trigger, data]
-            of Object.entries(guildData)
+          let reactionLimit = 0;
+
+
+          // Owner
+          if (
+            member.roles.cache.has(
+              OWNER_ROLE
+            )
           ) {
 
-            if (!data) {
-              continue;
-            }
+            reactionLimit = 3;
+
+          }
 
 
-            // ------------------------------------------------
-            // TRIGGER MUST MATCH ENTIRE MESSAGE
-            // ------------------------------------------------
+          // Staff
+          else if (
+            member.roles.cache.has(
+              STAFF_ROLE
+            )
+          ) {
 
-            if (
-              message.content
-                .trim()
-                .toLowerCase() !==
-              trigger.toLowerCase()
-            ) {
-              continue;
-            }
+            reactionLimit = 3;
+
+          }
 
 
-            // ------------------------------------------------
-            // MEMBER
-            // ------------------------------------------------
+          // Two-time booster
+          else if (
+            member.roles.cache.has(
+              BOOSTER_ROLE_2
+            )
+          ) {
 
-            const member =
-              message.member;
+            reactionLimit = 3;
 
-
-            if (!member) {
-              continue;
-            }
-
-
-            // ------------------------------------------------
-            // CHECK PERMISSIONS
-            // ------------------------------------------------
-
-            const isOwner =
-              member.roles.cache.has(
-                OWNER_ROLE
-              );
+          }
 
 
-            const isStaff =
-              member.roles.cache.has(
-                STAFF_ROLE
-              );
+          // One-time booster
+          else if (
+            member.roles.cache.has(
+              BOOSTER_ROLE_1
+            )
+          ) {
+
+            reactionLimit = 1;
+
+          }
 
 
-            const isBooster =
-              member.roles.cache.has(
-                BOOSTER_ROLE_1
-              ) ||
-              member.roles.cache.has(
-                BOOSTER_ROLE_2
-              );
+          // --------------------------------------------------
+          // NOT ELIGIBLE
+          // --------------------------------------------------
+
+          if (
+            reactionLimit === 0
+          ) {
+
+            return;
+
+          }
 
 
-            if (
-              !isOwner &&
-              !isStaff &&
-              !isBooster
-            ) {
+          // --------------------------------------------------
+          // GET USER'S NAME REACTION DATA
+          // --------------------------------------------------
 
-              continue;
-
-            }
-
-
-            // ------------------------------------------------
-            // VERIFY THIS TRIGGER BELONGS TO THIS USER
-            // ------------------------------------------------
-
-            if (
-              data.userId !==
+          const userData =
+            this.nameReactionData[
               message.author.id
-            ) {
-
-              continue;
-
-            }
+            ];
 
 
-            // ------------------------------------------------
-            // EMOJIS
-            // ------------------------------------------------
-
-            const emojis =
-              Array.isArray(data.emojis)
-                ? data.emojis
-                : [];
+          if (!userData) {
+            return;
+          }
 
 
-            // ------------------------------------------------
-            // MAXIMUM OF 3 EMOJIS
-            // ------------------------------------------------
+          if (
+            !Array.isArray(
+              userData.reactions
+            )
+          ) {
 
-            for (
-              const emoji
-              of emojis.slice(0, 3)
-            ) {
+            return;
 
-              try {
+          }
 
-                await message.react(
-                  emoji
-                );
 
-              } catch (error) {
+          // --------------------------------------------------
+          // MESSAGE CONTENT
+          // --------------------------------------------------
 
-                logger.warn(
-                  `Could not react with ${emoji}:`,
-                  error.message
+          const messageContent =
+            message.content
+              .trim()
+              .toLowerCase();
+
+
+          if (!messageContent) {
+            return;
+          }
+
+
+          // --------------------------------------------------
+          // FIND MATCHING TRIGGER
+          // --------------------------------------------------
+
+          const matchingReaction =
+            userData.reactions.find(
+              reaction => {
+
+                if (
+                  !reaction ||
+                  typeof reaction.trigger !==
+                    'string'
+                ) {
+
+                  return false;
+
+                }
+
+
+                return (
+                  reaction.trigger
+                    .trim()
+                    .toLowerCase() ===
+                  messageContent
                 );
 
               }
+            );
 
+
+          // --------------------------------------------------
+          // NO MATCH
+          // --------------------------------------------------
+
+          if (!matchingReaction) {
+            return;
+          }
+
+
+          // --------------------------------------------------
+          // GET EMOJIS
+          // --------------------------------------------------
+
+          let emojis = [];
+
+
+          // New format:
+          // emojis: [...]
+          if (
+            Array.isArray(
+              matchingReaction.emojis
+            )
+          ) {
+
+            emojis =
+              matchingReaction.emojis;
+
+          }
+
+
+          // Backwards compatibility:
+          // emoji: "..."
+          else if (
+            matchingReaction.emoji
+          ) {
+
+            emojis = [
+              matchingReaction.emoji,
+            ];
+
+          }
+
+
+          // --------------------------------------------------
+          // NO EMOJIS
+          // --------------------------------------------------
+
+          if (
+            emojis.length === 0
+          ) {
+
+            return;
+
+          }
+
+
+          // --------------------------------------------------
+          // RESPECT CURRENT SLOT LIMIT
+          // --------------------------------------------------
+
+          const emojisToUse =
+            emojis.slice(
+              0,
+              reactionLimit
+            );
+
+
+          // --------------------------------------------------
+          // REACT
+          // --------------------------------------------------
+
+          for (
+            const emoji
+            of emojisToUse
+          ) {
+
+            if (!emoji) {
+              continue;
             }
 
 
-            // ------------------------------------------------
-            // ONLY ONE TRIGGER PER MESSAGE
-            // ------------------------------------------------
+            try {
 
-            break;
+              await message.react(
+                emoji
+              );
+
+            } catch (error) {
+
+              logger.warn(
+                `Could not react with ${emoji}:`,
+                error.message
+              );
+
+            }
 
           }
 
@@ -2548,3 +2648,4 @@ try {
 
 
 export default TitanBot;
+```
