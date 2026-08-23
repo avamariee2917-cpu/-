@@ -1,10 +1,4 @@
-import {
-  SlashCommandBuilder,
-} from 'discord.js';
-
-import {
-  getLeaderboard,
-} from '../../services/levelingService.js';
+import { SlashCommandBuilder } from 'discord.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -12,51 +6,52 @@ export default {
     .setDescription('View the server leveling leaderboard.'),
 
   async execute(interaction) {
-    const leaderboard =
-      getLeaderboard(
-        interaction.guild.id,
-        10
-      );
+    const client = interaction.client;
 
-    if (leaderboard.length === 0) {
-      await interaction.reply({
-        content:
-          'The leveling leaderboard is empty.'
+    const guildData =
+      client.levelingData?.[interaction.guild.id] || {};
+
+    const users = Object.entries(guildData);
+
+    if (users.length === 0) {
+      return interaction.reply({
+        content: 'There are currently no users on the leveling leaderboard.',
+        ephemeral: false
       });
-
-      return;
     }
+
+    users.sort((a, b) => {
+      const xpA = a[1]?.xp || 0;
+      const xpB = b[1]?.xp || 0;
+
+      return xpB - xpA;
+    });
+
+    const topUsers = users.slice(0, 10);
 
     const lines = [];
 
-    for (
-      let index = 0;
-      index < leaderboard.length;
-      index++
-    ) {
-      const entry =
-        leaderboard[index];
+    for (let i = 0; i < topUsers.length; i++) {
+      const [userId, data] = topUsers[i];
 
-      const member =
-        await interaction.guild.members
-          .fetch(entry.userId)
-          .catch(() => null);
+      const user =
+        await client.users.fetch(userId).catch(() => null);
 
       const username =
-        member?.user?.username ||
-        `User ${entry.userId}`;
+        user?.username || `Unknown User (${userId})`;
+
+      const level = data?.level || 1;
+      const xp = data?.xp || 0;
 
       lines.push(
-        `**${index + 1}.** ${username} ` +
-        `— Level **${entry.level}** ` +
-        `(${entry.xp} XP)`
+        `**${i + 1}.** ${username} — Level **${level}** — ${xp} XP`
       );
     }
 
-    await interaction.reply({
+    return interaction.reply({
       content:
-        `**Secret Éclipse Level Leaderboard**\n\n` +
-        lines.join('\n'),
+        `**Leveling Leaderboard**\n\n${lines.join('\n')}`,
+      ephemeral: false
     });
-  },
+  }
 };
