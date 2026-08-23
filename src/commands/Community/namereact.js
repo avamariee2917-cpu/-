@@ -1,7 +1,5 @@
 import {
   SlashCommandBuilder,
-  ActionRowBuilder,
-  StringSelectMenuBuilder,
   EmbedBuilder,
 } from 'discord.js';
 
@@ -37,14 +35,14 @@ const STAFF_ROLE = '1532221464839848016';
 const OWNER_ROLE = '1531440557954437273';
 
 // ============================================================
-// LIMITS
+// NAME REACTION LIMITS
 // ============================================================
 
 const ONE_BOOST_LIMIT = 1;
 const THREE_REACTION_LIMIT = 3;
 
 // ============================================================
-// DATA
+// DATA FILE
 // ============================================================
 
 function ensureDataFile() {
@@ -119,7 +117,7 @@ function saveData(data) {
 }
 
 // ============================================================
-// REACTION LIMIT
+// GET USER REACTION LIMIT
 // ============================================================
 
 function getReactionLimit(member) {
@@ -157,7 +155,7 @@ function getReactionLimit(member) {
 }
 
 // ============================================================
-// STAFF / OWNER
+// STAFF / OWNER CHECK
 // ============================================================
 
 function canManageOthers(member) {
@@ -168,7 +166,7 @@ function canManageOthers(member) {
 }
 
 // ============================================================
-// EMOJI
+// EMOJI PARSER
 // ============================================================
 
 function getEmojiId(emoji) {
@@ -186,6 +184,42 @@ function getEmojiId(emoji) {
   }
 
   return match[1];
+}
+
+// ============================================================
+// GET USER REACTIONS FOR THIS GUILD
+// ============================================================
+
+function getUserReactions(
+  guildData,
+  userId
+) {
+
+  const reactions = [];
+
+  for (
+    const [trigger, reactionData]
+    of Object.entries(guildData || {})
+  ) {
+
+    if (!reactionData) {
+      continue;
+    }
+
+    if (
+      reactionData.userId !== userId
+    ) {
+      continue;
+    }
+
+    reactions.push({
+      trigger,
+      emoji: reactionData.emoji,
+      userId,
+    });
+  }
+
+  return reactions;
 }
 
 // ============================================================
@@ -288,46 +322,73 @@ export default {
 
   async execute(interaction) {
 
-    await interaction.deferReply({
-      ephemeral: true,
-    });
-
     try {
+
+      // ------------------------------------------------------
+      // SERVER CHECK
+      // ------------------------------------------------------
+
+      if (!interaction.guild) {
+
+        return interaction.reply({
+          content:
+            'This command can only be used inside the server.',
+          ephemeral: true,
+        });
+
+      }
+
+      // ------------------------------------------------------
+      // DEFER
+      // ------------------------------------------------------
+
+      await interaction.deferReply({
+        ephemeral: true,
+      });
+
+      // ------------------------------------------------------
+      // MEMBER
+      // ------------------------------------------------------
 
       const member =
         await interaction.guild.members.fetch(
           interaction.user.id
         );
 
+      // ------------------------------------------------------
+      // SUBCOMMAND
+      // ------------------------------------------------------
+
       const subcommand =
         interaction.options.getSubcommand();
+
+      // ------------------------------------------------------
+      // LOAD DATA
+      // ------------------------------------------------------
 
       const data =
         loadData();
 
+      const guildId =
+        interaction.guild.id;
+
       const userId =
         interaction.user.id;
 
-      if (!data[userId]) {
+      // ------------------------------------------------------
+      // MAKE SURE GUILD DATA EXISTS
+      // ------------------------------------------------------
 
-        data[userId] = {
-          reactions: [],
-        };
-
+      if (!data[guildId]) {
+        data[guildId] = {};
       }
 
-      if (
-        !Array.isArray(
-          data[userId].reactions
-        )
-      ) {
+      const guildData =
+        data[guildId];
 
-        data[userId].reactions = [];
-
-      }
-
-      const reactions =
-        data[userId].reactions;
+      // ------------------------------------------------------
+      // USER LIMIT
+      // ------------------------------------------------------
 
       const limit =
         getReactionLimit(member);
@@ -338,67 +399,107 @@ export default {
 
       if (subcommand === 'set') {
 
+        // ----------------------------------------------------
+        // ELIGIBILITY
+        // ----------------------------------------------------
+
         if (limit === 0) {
 
-          return interaction.editReply(
-            'You are not eligible for name reactions. You must be a booster, staff member, or server owner.'
-          );
+          return interaction.editReply({
+            content:
+              'You are not eligible for name reactions. You must be a booster, staff member, or server owner.',
+          });
 
         }
+
+        // ----------------------------------------------------
+        // GET CURRENT REACTIONS
+        // ----------------------------------------------------
+
+        const userReactions =
+          getUserReactions(
+            guildData,
+            userId
+          );
+
+        // ----------------------------------------------------
+        // LIMIT
+        // ----------------------------------------------------
 
         if (
-          reactions.length >= limit
+          userReactions.length >= limit
         ) {
 
-          return interaction.editReply(
-            `You have reached your name reaction limit of **${limit}**.`
-          );
+          return interaction.editReply({
+            content:
+              `You have reached your name reaction limit of **${limit}**.\n\n` +
+              `Your current reactions: **${userReactions.length}/${limit}**`,
+          });
 
         }
+
+        // ----------------------------------------------------
+        // GET INPUT
+        // ----------------------------------------------------
 
         const trigger =
           interaction.options
             .getString('trigger')
-            .trim()
+            ?.trim()
             .toLowerCase();
 
         const emojiInput =
           interaction.options
             .getString('emoji')
-            .trim();
+            ?.trim();
+
+        // ----------------------------------------------------
+        // TRIGGER VALIDATION
+        // ----------------------------------------------------
 
         if (!trigger) {
 
-          return interaction.editReply(
-            'The trigger cannot be empty.'
-          );
+          return interaction.editReply({
+            content:
+              'The trigger cannot be empty.',
+          });
 
         }
 
-        const duplicate =
-          reactions.some(
-            reaction =>
-              reaction.trigger === trigger
-          );
+        // ----------------------------------------------------
+        // DUPLICATE TRIGGER
+        // ----------------------------------------------------
 
-        if (duplicate) {
+        if (
+          guildData[trigger]
+        ) {
 
-          return interaction.editReply(
-            `You already have a reaction for **${trigger}**.`
-          );
+          return interaction.editReply({
+            content:
+              `The trigger **${trigger}** is already being used by another name reaction.`,
+          });
 
         }
+
+        // ----------------------------------------------------
+        // EMOJI VALIDATION
+        // ----------------------------------------------------
 
         const emojiId =
           getEmojiId(emojiInput);
 
         if (!emojiId) {
 
-          return interaction.editReply(
-            'Please use a custom emoji from this server.'
-          );
+          return interaction.editReply({
+            content:
+              'Please use a custom emoji from this server.',
+          });
 
         }
+
+        // ----------------------------------------------------
+        // FIND SERVER EMOJI
+        // ----------------------------------------------------
 
         const emoji =
           interaction.guild.emojis.cache.get(
@@ -407,25 +508,51 @@ export default {
 
         if (!emoji) {
 
-          return interaction.editReply(
-            'That emoji does not belong to this server.'
-          );
+          return interaction.editReply({
+            content:
+              'That emoji does not belong to this server.',
+          });
 
         }
 
-        reactions.push({
-          trigger,
+        // ----------------------------------------------------
+        // SAVE
+        // ----------------------------------------------------
+
+        guildData[trigger] = {
+          userId,
           emoji: emoji.toString(),
+        };
+
+        const saved =
+          saveData(data);
+
+        if (!saved) {
+
+          delete guildData[trigger];
+
+          return interaction.editReply({
+            content:
+              'I could not save your name reaction. Please try again.',
+          });
+
+        }
+
+        // ----------------------------------------------------
+        // SUCCESS
+        // ----------------------------------------------------
+
+        const newCount =
+          userReactions.length + 1;
+
+        return interaction.editReply({
+          content:
+            `**Name reaction added.**\n\n` +
+            `Trigger: \`${trigger}\`\n` +
+            `Reaction: ${emoji}\n` +
+            `Slots: **${newCount}/${limit}**`,
         });
 
-        saveData(data);
-
-        return interaction.editReply(
-          `**Name reaction added.**\n\n` +
-          `Trigger: \`${trigger}\`\n` +
-          `Reaction: ${emoji}\n` +
-          `Slots: **${reactions.length}/${limit}**`
-        );
       }
 
       // ======================================================
@@ -434,50 +561,91 @@ export default {
 
       if (subcommand === 'remove') {
 
+        // ----------------------------------------------------
+        // ELIGIBILITY
+        // ----------------------------------------------------
+
         if (limit === 0) {
 
-          return interaction.editReply(
-            'You are not eligible for name reactions.'
-          );
+          return interaction.editReply({
+            content:
+              'You are not eligible for name reactions.',
+          });
 
         }
+
+        // ----------------------------------------------------
+        // GET TRIGGER
+        // ----------------------------------------------------
 
         const trigger =
           interaction.options
             .getString('trigger')
-            .trim()
+            ?.trim()
             .toLowerCase();
 
-        const index =
-          reactions.findIndex(
-            reaction =>
-              reaction.trigger === trigger
-          );
+        // ----------------------------------------------------
+        // FIND TRIGGER
+        // ----------------------------------------------------
 
-        if (index === -1) {
+        const reaction =
+          guildData[trigger];
 
-          return interaction.editReply(
-            `You don't have a name reaction for **${trigger}**.`
-          );
+        if (
+          !reaction ||
+          reaction.userId !== userId
+        ) {
+
+          return interaction.editReply({
+            content:
+              `You don't have a name reaction for **${trigger}**.`,
+          });
 
         }
 
-        const removed =
-          reactions[index];
+        // ----------------------------------------------------
+        // REMOVE
+        // ----------------------------------------------------
 
-        reactions.splice(
-          index,
-          1
-        );
+        delete guildData[trigger];
 
-        saveData(data);
+        // Remove empty guild data
+        if (
+          Object.keys(guildData).length === 0
+        ) {
+          delete data[guildId];
+        }
 
-        return interaction.editReply(
-          `**Name reaction removed.**\n\n` +
-          `Trigger: \`${removed.trigger}\`\n` +
-          `Reaction: ${removed.emoji}\n` +
-          `Slots: **${reactions.length}/${limit}**`
-        );
+        const saved =
+          saveData(data);
+
+        if (!saved) {
+
+          return interaction.editReply({
+            content:
+              'I could not save the removal. Please try again.',
+          });
+
+        }
+
+        // ----------------------------------------------------
+        // COUNT REMAINING
+        // ----------------------------------------------------
+
+        const remaining =
+          getUserReactions(
+            data[guildId] || {},
+            userId
+          ).length;
+
+        return interaction.editReply({
+          content:
+            `**Name reaction removed.**\n\n` +
+            `Trigger: \`${trigger}\`\n` +
+            `Reaction: ${reaction.emoji}\n` +
+            `Slots: **${remaining}/${limit}**`,
+        });
+
       }
 
       // ======================================================
@@ -497,46 +665,34 @@ export default {
           const lines = [];
 
           for (
-            const [targetUserId, userData]
-            of Object.entries(data)
+            const [trigger, reaction]
+            of Object.entries(guildData)
           ) {
 
-            if (
-              !userData ||
-              !Array.isArray(
-                userData.reactions
-              )
-            ) {
+            if (!reaction) {
               continue;
             }
 
-            let targetName =
-              targetUserId;
+            let username =
+              reaction.userId;
 
             try {
 
               const targetMember =
                 await interaction.guild.members.fetch(
-                  targetUserId
+                  reaction.userId
                 );
 
-              targetName =
-                targetMember.displayName;
+              username =
+                targetMember.user.username;
 
             } catch {
               // Member may have left.
             }
 
-            for (
-              const reaction
-              of userData.reactions
-            ) {
-
-              lines.push(
-                `${reaction.emoji} \`${reaction.trigger}\` — **${targetName}**`
-              );
-
-            }
+            lines.push(
+              `${reaction.emoji} \`${trigger}\` — **${username}**`
+            );
 
           }
 
@@ -544,9 +700,10 @@ export default {
             lines.length === 0
           ) {
 
-            return interaction.editReply(
-              'There are currently no name reactions.'
-            );
+            return interaction.editReply({
+              content:
+                'There are currently no name reactions.',
+            });
 
           }
 
@@ -562,9 +719,14 @@ export default {
 
                 .setDescription(
                   lines
-                    .slice(0, 50)
+                    .slice(0, 100)
                     .join('\n')
-                ),
+                )
+
+                .setFooter({
+                  text:
+                    `${lines.length} name reaction(s)`,
+                }),
 
             ],
 
@@ -578,35 +740,54 @@ export default {
 
         if (limit === 0) {
 
-          return interaction.editReply(
-            'You are not eligible for name reactions.'
-          );
+          return interaction.editReply({
+            content:
+              'You are not eligible for name reactions.',
+          });
 
         }
 
+        const userReactions =
+          getUserReactions(
+            guildData,
+            userId
+          );
+
         if (
-          reactions.length === 0
+          userReactions.length === 0
         ) {
 
-          return interaction.editReply(
-            `You don't have any name reactions yet.\n\n` +
-            `Available slots: **${limit}**`
-          );
+          return interaction.editReply({
+            content:
+              `You don't have any name reactions yet.\n\n` +
+              `Available slots: **${limit}**`,
+          });
 
         }
 
         const lines =
-          reactions.map(
+          userReactions.map(
             (reaction, index) =>
               `**${index + 1}.** \`${reaction.trigger}\` → ${reaction.emoji}`
           );
 
-        return interaction.editReply(
-          `**Your Name Reactions**\n\n` +
-          `${lines.join('\n')}\n\n` +
-          `Slots: **${reactions.length}/${limit}**`
-        );
+        return interaction.editReply({
+          content:
+            `**Your Name Reactions**\n\n` +
+            `${lines.join('\n')}\n\n` +
+            `Slots: **${userReactions.length}/${limit}**`,
+        });
+
       }
+
+      // ------------------------------------------------------
+      // UNKNOWN SUBCOMMAND
+      // ------------------------------------------------------
+
+      return interaction.editReply({
+        content:
+          'Unknown name reaction subcommand.',
+      });
 
     } catch (error) {
 
@@ -615,9 +796,38 @@ export default {
         error
       );
 
-      return interaction.editReply(
-        'Something went wrong while managing your name reactions.'
-      );
+      // ------------------------------------------------------
+      // SAFE ERROR RESPONSE
+      // ------------------------------------------------------
+
+      try {
+
+        if (
+          interaction.deferred ||
+          interaction.replied
+        ) {
+
+          return interaction.editReply({
+            content:
+              'Something went wrong while managing your name reaction. Check the bot console for the error.',
+          });
+
+        }
+
+        return interaction.reply({
+          content:
+            'Something went wrong while managing your name reaction. Check the bot console for the error.',
+          ephemeral: true,
+        });
+
+      } catch (replyError) {
+
+        console.error(
+          'Could not send name reaction error response:',
+          replyError
+        );
+
+      }
 
     }
 
