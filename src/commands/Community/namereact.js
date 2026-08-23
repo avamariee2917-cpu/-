@@ -424,19 +424,204 @@ export default {
         )
     )
 
-    // ========================================================
-    // LIST
-    // ========================================================
+   // ======================================================
+// LIST
+// ======================================================
 
-    .addSubcommand(subcommand =>
-      subcommand
+if (subcommand === 'list') {
 
-        .setName('list')
+  // ----------------------------------------------------
+  // STAFF / OWNER ONLY
+  // ----------------------------------------------------
 
-        .setDescription(
-          'View and manage name reactions.'
-        )
-    ),
+  const isStaff =
+    member.roles.cache.has(STAFF_ROLE);
+
+  const isOwner =
+    member.roles.cache.has(OWNER_ROLE);
+
+  if (!isStaff && !isOwner) {
+    return interaction.editReply(
+      'Only staff and the server owner can view and manage all name reactions.'
+    );
+  }
+
+  // ----------------------------------------------------
+  // COLLECT ALL NAME REACTIONS
+  // ----------------------------------------------------
+
+  const allReactions = [];
+
+  for (
+    const [targetUserId, userData]
+    of Object.entries(data)
+  ) {
+
+    if (
+      !userData ||
+      !Array.isArray(userData.reactions)
+    ) {
+      continue;
+    }
+
+    for (
+      let reactionIndex = 0;
+      reactionIndex < userData.reactions.length;
+      reactionIndex++
+    ) {
+
+      const reaction =
+        userData.reactions[reactionIndex];
+
+      if (
+        !reaction ||
+        !reaction.trigger
+      ) {
+        continue;
+      }
+
+      allReactions.push({
+        userId: targetUserId,
+        reactionIndex,
+        trigger: reaction.trigger,
+        emoji: reaction.emoji,
+      });
+
+    }
+  }
+
+  // ----------------------------------------------------
+  // NOTHING FOUND
+  // ----------------------------------------------------
+
+  if (allReactions.length === 0) {
+    return interaction.editReply({
+      content:
+        '**Name Reaction Manager**\n\n' +
+        'There are currently no name reactions in the server.',
+      components: [],
+    });
+  }
+
+  // ----------------------------------------------------
+  // DISCORD SELECT MENU LIMIT
+  // ----------------------------------------------------
+
+  /*
+   * Discord select menus can only contain 25 options.
+   *
+   * We show the first 25 reactions.
+   */
+
+  const visibleReactions =
+    allReactions.slice(0, 25);
+
+  // ----------------------------------------------------
+  // BUILD OPTIONS
+  // ----------------------------------------------------
+
+  const options =
+    await Promise.all(
+      visibleReactions.map(
+        async reaction => {
+
+          let memberName =
+            reaction.userId;
+
+          try {
+
+            const targetMember =
+              await interaction.guild.members.fetch(
+                reaction.userId
+              );
+
+            memberName =
+              targetMember.displayName;
+
+          } catch {
+            // Member may have left.
+          }
+
+          return {
+            label:
+              `${reaction.trigger} — ${memberName}`
+                .slice(0, 100),
+
+            description:
+              `Remove ${reaction.trigger}'s name reaction`
+                .slice(0, 100),
+
+            value:
+              `${reaction.userId}::${reaction.reactionIndex}`,
+
+            emoji:
+              reaction.emoji,
+          };
+        }
+      )
+    );
+
+  // ----------------------------------------------------
+  // SELECT MENU
+  // ----------------------------------------------------
+
+  const {
+    ActionRowBuilder,
+    StringSelectMenuBuilder,
+  } = await import('discord.js');
+
+  const selectMenu =
+    new StringSelectMenuBuilder()
+      .setCustomId(
+        'nameReactionRemove'
+      )
+      .setPlaceholder(
+        'Select a name reaction to remove...'
+      )
+      .addOptions(
+        options
+      );
+
+  const row =
+    new ActionRowBuilder()
+      .addComponents(
+        selectMenu
+      );
+
+  // ----------------------------------------------------
+  // LIST TEXT
+  // ----------------------------------------------------
+
+  const lines =
+    visibleReactions.map(
+      reaction =>
+        `${reaction.emoji} \`${reaction.trigger}\` — <@${reaction.userId}>`
+    );
+
+  let content =
+    '**Name Reaction Manager**\n\n' +
+    lines.join('\n') +
+    '\n\n' +
+    '**Select a reaction below to delete it.**';
+
+  if (
+    allReactions.length > 25
+  ) {
+    content +=
+      `\n\nShowing **25/${allReactions.length}** reactions.`;
+  }
+
+  // ----------------------------------------------------
+  // SEND LIST
+  // ----------------------------------------------------
+
+  return interaction.editReply({
+    content,
+    components: [
+      row,
+    ],
+  });
+}
 
   // ==========================================================
   // EXECUTE
