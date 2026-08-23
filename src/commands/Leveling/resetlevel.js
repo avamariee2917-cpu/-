@@ -1,56 +1,62 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 
 export default {
   data: new SlashCommandBuilder()
-    .setName('leaderboard')
-    .setDescription('View the server leveling leaderboard.'),
+    .setName('resetlevel')
+    .setDescription("Reset a user's level and XP.")
+    .addUserOption(option =>
+      option
+        .setName('user')
+        .setDescription('The user whose level you want to reset.')
+        .setRequired(true)
+    )
+    .setDefaultMemberPermissions(
+      PermissionFlagsBits.Administrator.toString()
+    ),
 
   async execute(interaction) {
     const client = interaction.client;
+    const target = interaction.options.getUser('user');
 
-    const guildData =
-      client.levelingData?.[interaction.guild.id] || {};
-
-    const users = Object.entries(guildData);
-
-    if (users.length === 0) {
+    if (!interaction.guild) {
       return interaction.reply({
-        content: 'There are currently no users on the leveling leaderboard.',
-        ephemeral: false
+        content: 'This command can only be used in a server.',
+        ephemeral: true
       });
     }
 
-    users.sort((a, b) => {
-      const xpA = a[1]?.xp || 0;
-      const xpB = b[1]?.xp || 0;
+    if (!client.levelingData[interaction.guild.id]) {
+      client.levelingData[interaction.guild.id] = {};
+    }
 
-      return xpB - xpA;
-    });
+    client.levelingData[interaction.guild.id][target.id] = {
+      xp: 0,
+      level: 1
+    };
 
-    const topUsers = users.slice(0, 10);
+    if (typeof client.saveLevelingData === 'function') {
+      client.saveLevelingData();
+    }
 
-    const lines = [];
+    const member = await interaction.guild.members
+      .fetch(target.id)
+      .catch(() => null);
 
-    for (let i = 0; i < topUsers.length; i++) {
-      const [userId, data] = topUsers[i];
+    if (member) {
+      const levelRoleIds = Object.values(client.levelRoles || {});
 
-      const user =
-        await client.users.fetch(userId).catch(() => null);
-
-      const username =
-        user?.username || `Unknown User (${userId})`;
-
-      const level = data?.level || 1;
-      const xp = data?.xp || 0;
-
-      lines.push(
-        `**${i + 1}.** ${username} — Level **${level}** — ${xp} XP`
-      );
+      for (const roleId of levelRoleIds) {
+        if (member.roles.cache.has(roleId)) {
+          await member.roles.remove(
+            roleId,
+            'Level reset'
+          ).catch(() => {});
+        }
+      }
     }
 
     return interaction.reply({
-      content:
-        `**Leveling Leaderboard**\n\n${lines.join('\n')}`,
+      content: `${target}'s level has been reset to **1** with **0 XP**.`,
       ephemeral: false
     });
   }
