@@ -11,6 +11,27 @@ const nameReactionFile = path.join(
 );
 
 
+// ============================================================
+// .DIV AUTORESPONDER CONFIGURATION
+// ============================================================
+
+const DIV_ALLOWED_CHANNELS = new Set([
+  '1532187710108860587',
+  '1532187753557524581',
+  '1531889348323180586',
+  '1531889304245243904',
+  '1533649909839040592',
+  '1531527600718221363',
+]);
+
+const DIV_REQUIRED_ROLES = new Set([
+  '1531889895474335764',
+  '1532221464839848016',
+]);
+
+const DIV_GIF_URL = 'https://cdn.discordapp.com/attachments/1155344789152206868/1357924444906983495/217979.gif?ex=6a8d1030&is=6a8bbeb0&hm=bbbdf0b5884e94c088009312d4119487b708a2d6462870d3dcc5e575905470fc';
+
+
 /*
  * Load saved name reactions
  */
@@ -215,6 +236,97 @@ async function handleNameReact(message) {
 
 
 /*
+ * Handle .div autoresponder
+ */
+async function handleDivAutoresponder(message) {
+
+    try {
+
+        // --------------------------------------------------
+        // CHECK MESSAGE CONTENT (EXACT MATCH)
+        // --------------------------------------------------
+
+        if (message.content !== '.div') {
+            return;
+        }
+
+
+        // --------------------------------------------------
+        // CHECK CHANNEL AUTHORIZATION
+        // --------------------------------------------------
+
+        if (!DIV_ALLOWED_CHANNELS.has(message.channel.id)) {
+            return;
+        }
+
+
+        // --------------------------------------------------
+        // CHECK ROLE AUTHORIZATION
+        // --------------------------------------------------
+
+        const member = message.member;
+
+        if (!member) {
+            return;
+        }
+
+        const hasRequiredRole = Array.from(DIV_REQUIRED_ROLES).some(
+            roleId => member.roles.cache.has(roleId)
+        );
+
+        if (!hasRequiredRole) {
+            return;
+        }
+
+
+        // --------------------------------------------------
+        // DELETE USER'S .DIV MESSAGE
+        // --------------------------------------------------
+
+        try {
+
+            await message.delete();
+
+        } catch (error) {
+
+            logger.warn(
+                `Failed to delete .div message from ${message.author.tag}:`,
+                error.message
+            );
+
+        }
+
+
+        // --------------------------------------------------
+        // SEND GIF RESPONSE
+        // --------------------------------------------------
+
+        try {
+
+            await message.channel.send(DIV_GIF_URL);
+
+        } catch (error) {
+
+            logger.warn(
+                `Failed to send .div GIF in channel ${message.channel.id}:`,
+                error.message
+            );
+
+        }
+
+    } catch (error) {
+
+        logger.error(
+            ".div autoresponder error:",
+            error
+        );
+
+    }
+
+}
+
+
+/*
  * Discord messageCreate event
  */
 export default {
@@ -238,6 +350,14 @@ export default {
 
             logger.debug(
                 `Message received from ${message.author.tag}: ${message.content}`
+            );
+
+
+            /*
+             * .DIV AUTORESPONDER
+             */
+            await handleDivAutoresponder(
+                message
             );
 
 
