@@ -1554,13 +1554,13 @@ class TitanBot extends Client {
   setupCronJobs() {
 
     cron.schedule(
-      '0 6 * * *',
-      runSafeTask(
-        'birthday_check',
-        () =>
-          checkBirthdays(this)
-      )
-    );
+  '* * * * *',
+  runSafeTask(
+    'birthday_check',
+    () =>
+      checkBirthdays(this)
+  )
+);
 
 
     cron.schedule(
