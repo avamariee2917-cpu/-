@@ -917,9 +917,19 @@ class TitanBot extends Client {
 
     try {
 
+      // Ensure member is provided
+      if (!member) {
+        logger.warn('updateLevelRoles called with null/undefined member');
+        return;
+      }
+
       const guild =
         member.guild;
 
+      if (!guild) {
+        logger.warn('updateLevelRoles: member has no guild');
+        return;
+      }
 
       const botMember =
         guild.members.me ||
@@ -937,16 +947,32 @@ class TitanBot extends Client {
       }
 
 
-      // ------------------------------------------------------
-      // QUALIFYING ROLES
-      // ------------------------------------------------------
+      // Verify bot has Manage Roles permission
+      if (!botMember.permissions.has('ManageRoles')) {
+
+        logger.warn(
+          `Bot does not have Manage Roles permission in guild ${guild.id}`
+        );
+
+        return;
+
+      }
+
+
+      // Ensure level is a valid number
+      const safeLevel = Math.max(1, Math.min(MAX_LEVEL, Number(level) || 1));
+
+
+      // ======================================================
+      // DETERMINE QUALIFYING ROLES
+      // ======================================================
 
       const qualifyingRoleIds =
         new Set(
           ROLE_LEVELS
             .filter(
               roleLevel =>
-                roleLevel <= level
+                roleLevel <= safeLevel
             )
             .map(
               roleLevel =>
@@ -955,9 +981,9 @@ class TitanBot extends Client {
         );
 
 
-      // ------------------------------------------------------
-      // REMOVE UNQUALIFIED ROLES
-      // ------------------------------------------------------
+      // ======================================================
+      // PROCESS ALL LEVELING ROLES
+      // ======================================================
 
       for (
         const roleLevel
@@ -968,42 +994,46 @@ class TitanBot extends Client {
           LEVEL_ROLES[roleLevel];
 
 
-        if (
-          qualifyingRoleIds.has(
-            roleId
-          )
-        ) {
+        // Check if role should be held
+        const shouldHaveRole =
+          qualifyingRoleIds.has(roleId);
+
+
+        // Check if member currently has role
+        const hasRole =
+          member.roles.cache.has(roleId);
+
+
+        // No action needed
+        if (shouldHaveRole === hasRole) {
           continue;
         }
 
 
-        if (
-          !member.roles.cache.has(
-            roleId
-          )
-        ) {
-          continue;
-        }
-
-
+        // Fetch role from guild
         const role =
-          guild.roles.cache.get(
-            roleId
-          );
+          guild.roles.cache.get(roleId);
 
 
         if (!role) {
+
+          logger.warn(
+            `Level ${roleLevel} role ${roleId} not found in guild ${guild.id}.`
+          );
+
           continue;
+
         }
 
 
+        // Check role hierarchy
         if (
           role.position >=
           botMember.roles.highest.position
         ) {
 
           logger.warn(
-            `Cannot remove ${role.name}; role is above bot.`
+            `Cannot modify ${role.name} (${roleId}); role is at or above bot's highest role in guild ${guild.id}.`
           );
 
           continue;
@@ -1011,100 +1041,54 @@ class TitanBot extends Client {
         }
 
 
-        try {
+        // REMOVE ROLE
+        if (hasRole && !shouldHaveRole) {
 
-          await member.roles.remove(
-            role,
-            `Current level is ${level}`
-          );
+          try {
 
-        } catch (error) {
+            await member.roles.remove(
+              role,
+              `Level decreased from ${Math.ceil((member.user.id in (this.levelingData[guild.id] || {}) ? this.levelingData[guild.id][member.user.id].xp / XP_PER_LEVEL + 1 : 1))} to ${safeLevel}`
+            );
 
-          logger.warn(
-            `Could not remove ${role.name}:`,
-            error.message
-          );
+            logger.info(
+              `Removed level ${roleLevel} role from ${member.user.tag} in guild ${guild.id}`
+            );
 
-        }
+          } catch (error) {
 
-      }
+            logger.warn(
+              `Could not remove ${role.name} from ${member.user.tag}:`,
+              error.message
+            );
 
-
-      // ------------------------------------------------------
-      // ADD QUALIFYING ROLES
-      // ------------------------------------------------------
-
-      for (
-        const roleLevel
-        of ROLE_LEVELS
-      ) {
-
-        const roleId =
-          LEVEL_ROLES[roleLevel];
-
-
-        if (
-          !qualifyingRoleIds.has(
-            roleId
-          )
-        ) {
-          continue;
-        }
-
-
-        if (
-          member.roles.cache.has(
-            roleId
-          )
-        ) {
-          continue;
-        }
-
-
-        const role =
-          guild.roles.cache.get(
-            roleId
-          );
-
-
-        if (!role) {
-
-          logger.warn(
-            `Level ${roleLevel} role ${roleId} not found.`
-          );
-
-          continue;
+          }
 
         }
 
 
-        if (
-          role.position >=
-          botMember.roles.highest.position
-        ) {
+        // ADD ROLE
+        if (!hasRole && shouldHaveRole) {
 
-          logger.warn(
-            `Cannot add ${role.name}; role is above bot.`
-          );
+          try {
 
-          continue;
+            await member.roles.add(
+              role,
+              `Reached level ${safeLevel}`
+            );
 
-        }
+            logger.info(
+              `Added level ${roleLevel} role to ${member.user.tag} in guild ${guild.id}`
+            );
 
+          } catch (error) {
 
-        try {
+            logger.warn(
+              `Could not add ${role.name} to ${member.user.tag}:`,
+              error.message
+            );
 
-          await member.roles.add(
-            role,
-            `Reached level ${level}`
-          );
-
-        } catch (error) {
-
-          logger.warn(
-            `Could not add ${role.name}:`,
-            error.message
-          );
+          }
 
         }
 
@@ -1113,7 +1097,7 @@ class TitanBot extends Client {
     } catch (error) {
 
       logger.error(
-        `Failed to update roles for ${member.user.tag}:`,
+        `Failed to update roles for member:`,
         error
       );
 
