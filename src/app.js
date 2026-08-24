@@ -91,13 +91,18 @@ const LEVELING_FILE =
 const LEVELING_CHANNELS = new Set([
   '1531439019529994283',
   '1531441681893691514',
-  '1531444192214257744',
-  '1531444263953498315',
   '1531444290054656091',
   '1531444326339575909',
   '1532518611812618350',
+  '1533718033036476497',
   '1533649909839040592',
-  '1533765592925081650',
+  '1541320716941664256',
+  '1541318089226850304',
+  '1541318129626386472',
+  '1541318239857147934',
+  '1541321227568943174',
+  '1531444192214257744',
+  '1531444263953498315',
 ]);
 
 
@@ -144,24 +149,6 @@ const MAX_LEVEL =
 
 const MAX_XP =
   (MAX_LEVEL - 1) * XP_PER_LEVEL;
-
-
-// ============================================================
-// LEVEL ANNOUNCEMENTS
-// ============================================================
-
-const ANNOUNCEMENT_LEVELS = new Set([
-  10,
-  20,
-  30,
-  40,
-  50,
-  60,
-  70,
-  80,
-  90,
-  100,
-]);
 
 
 // ============================================================
@@ -859,35 +846,21 @@ class TitanBot extends Client {
 
 
           // --------------------------------------------------
-          // LEVEL ANNOUNCEMENTS
+          // LEVEL ANNOUNCEMENTS (EVERY LEVEL)
           // --------------------------------------------------
 
-          for (
-            const milestone
-            of ANNOUNCEMENT_LEVELS
-          ) {
+          try {
 
-            if (
-              newLevel >= milestone &&
-              oldLevel < milestone
-            ) {
+            await message.channel.send(
+              `♱ ⋆˙ ${message.author} has reached level ${newLevel}`
+            );
 
-              try {
+          } catch (error) {
 
-                await message.channel.send(
-                  `.⋆♱ <@${message.author.id}> 𝚑𝚊𝚜 𝚛𝚎𝚊𝚌𝚑𝚎𝚍 𝚕𝚎𝚟𝚎𝚕 **${milestone}**.`
-                );
-
-              } catch (error) {
-
-                logger.warn(
-                  'Could not send level announcement:',
-                  error.message
-                );
-
-              }
-
-            }
+            logger.warn(
+              'Could not send level announcement:',
+              error.message
+            );
 
           }
 
@@ -964,7 +937,7 @@ class TitanBot extends Client {
 
 
       // ======================================================
-      // DETERMINE QUALIFYING ROLES
+      // DETERMINE QUALIFYING ROLES (CUMULATIVE)
       // ======================================================
 
       const qualifyingRoleIds =
@@ -1048,7 +1021,7 @@ class TitanBot extends Client {
 
             await member.roles.remove(
               role,
-              `Level decreased from ${Math.ceil((member.user.id in (this.levelingData[guild.id] || {}) ? this.levelingData[guild.id][member.user.id].xp / XP_PER_LEVEL + 1 : 1))} to ${safeLevel}`
+              `Level decreased to ${safeLevel}`
             );
 
             logger.info(
