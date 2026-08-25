@@ -18,14 +18,14 @@ const nameReactionFile = path.join(
 
 
 // ============================================================
-// UPLOADER AUTO-MESSAGE
+// UPLOADER AUTO-MESSAGE SETTINGS
 // ============================================================
 
 const UPLOADER_CHANNEL_IDS = new Set([
     "1532187710108860587",
     "1532187753557524581",
     "1531889348323180586",
-    "1531889304245243904",
+    "1531889304245243904"
 ]);
 
 const UPLOADER_MESSAGE =
@@ -90,13 +90,11 @@ function getEmojiId(emoji) {
         return null;
     }
 
-    const text =
-        String(emoji).trim();
+    const text = String(emoji).trim();
 
-    const match =
-        text.match(
-            /<a?:\w+:(\d+)>/
-        );
+    const match = text.match(
+        /<a?:\w+:(\d+)>/
+    );
 
     if (match) {
         return match[1];
@@ -107,7 +105,6 @@ function getEmojiId(emoji) {
     }
 
     return null;
-
 }
 
 
@@ -119,21 +116,11 @@ async function handleNameReact(message) {
 
     try {
 
-        const reactions =
-            loadNameReactions();
+        const reactions = loadNameReactions();
 
-        const content =
-            message.content.toLowerCase();
+        for (const name in reactions) {
 
-
-        for (
-            const name
-            in reactions
-        ) {
-
-            const reaction =
-                reactions[name];
-
+            const reaction = reactions[name];
 
             if (
                 !reaction ||
@@ -143,30 +130,20 @@ async function handleNameReact(message) {
                 continue;
             }
 
+            const escapedName = name.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+            );
 
-            const escapedName =
-                name.replace(
-                    /[.*+?^${}()|[\]\\]/g,
-                    "\\$&"
-                );
-
-
-            const nameRegex =
-                new RegExp(
-                    `(^|\\s)${escapedName}(?=\\s|$|[.,!?;:'"()\\[\\]{}])`,
-                    "i"
-                );
-
+            const nameRegex = new RegExp(
+                `(^|\\s)${escapedName}(?=\\s|$|[.,!?;:'"()\\[\\]{}])`,
+                "i"
+            );
 
             const nameWasUsed =
-                nameRegex.test(
-                    message.content
-                );
+                nameRegex.test(message.content);
 
-
-            let memberWasMentioned =
-                false;
-
+            let memberWasMentioned = false;
 
             if (reaction.createdBy) {
 
@@ -177,7 +154,6 @@ async function handleNameReact(message) {
 
             }
 
-
             if (
                 !nameWasUsed &&
                 !memberWasMentioned
@@ -185,39 +161,22 @@ async function handleNameReact(message) {
                 continue;
             }
 
+            for (const emoji of reaction.emojis) {
 
-            for (
-                const emoji
-                of reaction.emojis
-            ) {
-
-                const emojiId =
-                    getEmojiId(
-                        emoji
-                    );
-
+                const emojiId = getEmojiId(emoji);
 
                 if (!emojiId) {
-
-                    logger.warn(
-                        `Could not understand Name Reaction emoji: ${emoji}`
-                    );
-
                     continue;
-
                 }
-
 
                 try {
 
-                    await message.react(
-                        emojiId
-                    );
+                    await message.react(emojiId);
 
                 } catch (error) {
 
                     logger.warn(
-                        `Failed to react with emoji ${emojiId} for Name Reaction "${name}"`,
+                        `Failed to react with emoji ${emojiId}:`,
                         error
                     );
 
@@ -225,9 +184,7 @@ async function handleNameReact(message) {
 
             }
 
-
             break;
-
         }
 
     } catch (error) {
@@ -250,82 +207,8 @@ async function handleUploaderMessage(message) {
 
     try {
 
-        // Only run in the uploader channels
-        if (!UPLOADER_CHANNEL_IDS.has(message.channel.id)) {
-            return;
-        }
-
-        // Get recent messages in the channel
-        const messages = await message.channel.messages.fetch({
-            limit: 50
-        });
-
-        // Find messages sent by THIS bot
-        const botMessages = messages.filter(
-            msg =>
-                msg.author.id === message.client.user.id
-        );
-
-        // Delete the previous uploader message(s)
-        for (const botMessage of botMessages.values()) {
-
-            // Only delete our uploader message
-            if (
-                botMessage.content.includes("become a uploader") &&
-                botMessage.content.includes("open a ticket here")
-            ) {
-
-                try {
-                    await botMessage.delete();
-                } catch (error) {
-                    logger.warn(
-                        "Could not delete old uploader message:",
-                        error.message
-                    );
-                }
-
-            }
-
-        }
-
-        // Send the new uploader message
-        await message.channel.send({
-            content: UPLOADER_MESSAGE
-        });
-
-        logger.info(
-            `Uploader message sent in channel ${message.channel.id}`
-        );
-
-    } catch (error) {
-
-        logger.error(
-            "Uploader automatic message error:",
-            error
-        );
-
-    }
-
-}
-
-        // Send a fresh uploader message
-        await message.channel.send({
-            content: UPLOADER_MESSAGE
-        });
-
-    } catch (error) {
-
-        logger.error(
-            "Uploader automatic message error:",
-            error
-        );
-
-    }
-
-}
-
         // ------------------------------------------------------
-        // ONLY RUN IN SPECIFIC CHANNELS
+        // ONLY WATCH THE UPLOADER CHANNELS
         // ------------------------------------------------------
 
         if (
@@ -338,17 +221,41 @@ async function handleUploaderMessage(message) {
 
 
         // ------------------------------------------------------
-        // FIND PREVIOUS BOT UPLOADER MESSAGE
+        // ONLY TRIGGER WHEN SOMEONE ACTUALLY UPLOADS SOMETHING
+        // ------------------------------------------------------
+
+        const hasAttachment =
+            message.attachments &&
+            message.attachments.size > 0;
+
+        const hasImageEmbed =
+            message.embeds &&
+            message.embeds.some(
+                embed =>
+                    embed.image ||
+                    embed.thumbnail
+            );
+
+        if (
+            !hasAttachment &&
+            !hasImageEmbed
+        ) {
+            return;
+        }
+
+
+        // ------------------------------------------------------
+        // FIND THE BOT'S OLD UPLOADER MESSAGE
         // ------------------------------------------------------
 
         const messages =
             await message.channel.messages.fetch({
-                limit: 20
+                limit: 100
             });
 
 
-        const previousUploaderMessage =
-            messages.find(
+        const oldUploaderMessages =
+            messages.filter(
                 msg =>
                     msg.author.id ===
                         message.client.user.id &&
@@ -358,22 +265,23 @@ async function handleUploaderMessage(message) {
 
 
         // ------------------------------------------------------
-        // DELETE PREVIOUS MESSAGE
+        // DELETE ALL OLD UPLOADER MESSAGES
         // ------------------------------------------------------
 
-        if (
-            previousUploaderMessage
+        for (
+            const oldMessage
+            of oldUploaderMessages.values()
         ) {
 
             try {
 
-                await previousUploaderMessage.delete();
+                await oldMessage.delete();
 
             } catch (error) {
 
                 logger.warn(
-                    "Could not delete previous uploader message:",
-                    error
+                    "Could not delete old uploader message:",
+                    error.message
                 );
 
             }
@@ -382,11 +290,16 @@ async function handleUploaderMessage(message) {
 
 
         // ------------------------------------------------------
-        // SEND NEW MESSAGE
+        // SEND A FRESH UPLOADER MESSAGE
         // ------------------------------------------------------
 
-        await message.channel.send(
-            UPLOADER_MESSAGE
+        await message.channel.send({
+            content: UPLOADER_MESSAGE
+        });
+
+
+        logger.info(
+            `Uploader message refreshed in #${message.channel.name}`
         );
 
 
@@ -403,18 +316,14 @@ async function handleUploaderMessage(message) {
 
 
 // ============================================================
-// DISCORD MESSAGE CREATE EVENT
+// DISCORD MESSAGE CREATE
 // ============================================================
 
 export default {
 
     name: Events.MessageCreate,
 
-
-    async execute(
-        message,
-        client
-    ) {
+    async execute(message, client) {
 
         try {
 
@@ -445,27 +354,27 @@ export default {
             );
 
 
-            // --------------------------------------------------
+            // ==================================================
             // UPLOADER AUTO-MESSAGE
-            // --------------------------------------------------
+            // ==================================================
 
             await handleUploaderMessage(
                 message
             );
 
 
-            // --------------------------------------------------
-            // .DIV AUTORESPONDER
-            // --------------------------------------------------
+            // ==================================================
+            // YOUR EXISTING .DIV AUTORESPONDER
+            // ==================================================
 
             await handleDivAutoresponder(
                 message
             );
 
 
-            // --------------------------------------------------
-            // NAME REACTIONS
-            // --------------------------------------------------
+            // ==================================================
+            // YOUR EXISTING NAME REACTIONS
+            // ==================================================
 
             await handleNameReact(
                 message
