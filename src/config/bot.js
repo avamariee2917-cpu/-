@@ -68,9 +68,9 @@ export const botConfig = {
 
     // Embed colors by application status.
     statusColors: {
-      pending: "#FFA500",
-      approved: "#00FF00",
-      denied: "#FF0000",
+      pending: "#000000",
+      approved: "#000000",
+      denied: "#000000",
     },
 
     // How long users must wait before submitting another application (hours).
@@ -94,13 +94,13 @@ export const botConfig = {
     colors: {
       // Main brand colors.
       primary: "#000000",
-      secondary: "#2F3136",
+      secondary: "#000000",
 
       // Standard status colors for success/error/warning/info messages.
-      success: "#57F287",
-      error: "#ED4245",
-      warning: "#FEE75C",
-      info: "#3498DB",
+      success: "#000000",
+      error: "#000000",
+      warning: "#000000",
+      info: "#000000",
 
       // Neutral utility colors.
       light: "#FFFFFF",
@@ -117,23 +117,23 @@ export const botConfig = {
 
       // Feature-specific colors.
       giveaway: {
-        active: "#57F287",
-        ended: "#ED4245",
+        active: "#000000",
+        ended: "#000000",
       },
       ticket: {
-        open: "#57F287",
-        claimed: "#FAA61A",
-        closed: "#ED4245",
-        pending: "#99AAB5",
+        open: "#000000",
+        claimed: "#000000",
+        closed: "#000000",
+        pending: "#000000",
       },
-      economy: "#F1C40F",
-      birthday: "#E91E63",
-      moderation: "#9B59B6",
+      economy: "#000000",
+      birthday: "#000000",
+      moderation: "#000000",
 
       // Ticket priority color mapping.
       priority: {
-        none: "#95A5A6",
-        low: "#3498db",
+        none: "#000000",
+        low: "#2e2a2d",
         medium: "#2ecc71",
         high: "#f1c40f",
         urgent: "#e74c3c",
@@ -404,25 +404,25 @@ export const botConfig = {
     },
     messages: {
       // Default response messages for counter actions.
-      created: "✅ Created counter **{name}**",
-      deleted: "🗑️ Deleted counter **{name}**",
-      updated: "🔄 Updated counter **{name}**",
+      created: "Created counter **{name}**",
+      deleted: "Deleted counter **{name}**",
+      updated: "Updated counter **{name}**",
     },
     types: {
       // Built-in counter types and how each count is calculated.
       members: {
-        name: "👥 Members",
+        name: "Members",
         description: "Total members in the server",
         getCount: (guild) => guild.memberCount.toString(),
       },
       bots: {
-        name: "🤖 Bots",
+        name: "Bots",
         description: "Total bot accounts in the server",
         getCount: (guild) =>
           guild.members.cache.filter((m) => m.user.bot).size.toString(),
       },
       members_only: {
-        name: "👤 Humans",
+        name: "Humans",
         description: "Total human members (non-bots)",
         getCount: (guild) =>
           guild.members.cache.filter((m) => !m.user.bot).size.toString(),
