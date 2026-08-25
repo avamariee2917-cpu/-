@@ -218,31 +218,7 @@ async function handleUploaderMessage(message) {
         ) {
             return;
         }
-
-
-        // ------------------------------------------------------
-        // ONLY TRIGGER WHEN SOMEONE ACTUALLY UPLOADS SOMETHING
-        // ------------------------------------------------------
-
-        const hasAttachment =
-            message.attachments &&
-            message.attachments.size > 0;
-
-        const hasImageEmbed =
-            message.embeds &&
-            message.embeds.some(
-                embed =>
-                    embed.image ||
-                    embed.thumbnail
-            );
-
-        if (
-            !hasAttachment &&
-            !hasImageEmbed
-        ) {
-            return;
-        }
-
+        
 
         // ------------------------------------------------------
         // FIND THE BOT'S OLD UPLOADER MESSAGE
