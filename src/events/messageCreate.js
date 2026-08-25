@@ -5,6 +5,11 @@ import path from "path";
 import { logger } from "../utils/logger.js";
 import { handleDivAutoresponder } from "../services/divAutoresponder.js";
 
+
+// ============================================================
+// NAME REACTIONS
+// ============================================================
+
 const nameReactionFile = path.join(
     process.cwd(),
     "data",
@@ -12,12 +17,34 @@ const nameReactionFile = path.join(
 );
 
 
-/*
- * Load saved name reactions
- */
+// ============================================================
+// UPLOADER AUTO-MESSAGE
+// ============================================================
+
+const UPLOADER_CHANNEL_IDS = new Set([
+    "1532187710108860587",
+    "1532187753557524581",
+    "1531889348323180586",
+    "1531889304245243904",
+]);
+
+const UPLOADER_MESSAGE =
+`·:*¨༺ ♱✮♱ ༻¨*:·
+> <:bling:1532144020921389176> ﹒  **become a uploader**
+> <:bling:1532144020921389176> ﹒  **open a ticket here *:* <#1532195996052754523>**
+·:*¨༺ ♱✮♱ ༻¨*:·`;
+
+
+// ============================================================
+// LOAD SAVED NAME REACTIONS
+// ============================================================
+
 function loadNameReactions() {
+
     try {
+
         if (!fs.existsSync(nameReactionFile)) {
+
             fs.mkdirSync(
                 path.dirname(nameReactionFile),
                 {
@@ -29,6 +56,7 @@ function loadNameReactions() {
                 nameReactionFile,
                 "{}"
             );
+
         }
 
         return JSON.parse(
@@ -46,34 +74,29 @@ function loadNameReactions() {
         );
 
         return {};
+
     }
+
 }
 
 
-/*
- * Get the Discord emoji ID from:
- *
- * <a:blackdiamond:1532143696957669476>
- *
- * or:
- *
- * <:sparkle:123456789>
- *
- * or just:
- *
- * 123456789
- */
+// ============================================================
+// GET DISCORD EMOJI ID
+// ============================================================
+
 function getEmojiId(emoji) {
 
     if (!emoji) {
         return null;
     }
 
-    const text = String(emoji).trim();
+    const text =
+        String(emoji).trim();
 
-    const match = text.match(
-        /<a?:\w+:(\d+)>/
-    );
+    const match =
+        text.match(
+            /<a?:\w+:(\d+)>/
+        );
 
     if (match) {
         return match[1];
@@ -84,24 +107,33 @@ function getEmojiId(emoji) {
     }
 
     return null;
+
 }
 
 
-/*
- * Handle Name Reactions
- */
+// ============================================================
+// HANDLE NAME REACTIONS
+// ============================================================
+
 async function handleNameReact(message) {
 
     try {
 
-        const reactions = loadNameReactions();
+        const reactions =
+            loadNameReactions();
 
-        const content = message.content.toLowerCase();
+        const content =
+            message.content.toLowerCase();
 
 
-        for (const name in reactions) {
+        for (
+            const name
+            in reactions
+        ) {
 
-            const reaction = reactions[name];
+            const reaction =
+                reactions[name];
+
 
             if (
                 !reaction ||
@@ -112,35 +144,29 @@ async function handleNameReact(message) {
             }
 
 
-            /*
-             * Check whether the custom trigger name
-             * was used as a complete word.
-             *
-             * Example:
-             *
-             * "aeris is here"     -> YES
-             * "AERIS is here"     -> YES
-             * "aeris!"            -> YES
-             * "aeris123"          -> NO
-             */
-            const escapedName = name
-                .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-            const nameRegex = new RegExp(
-                `(^|\\s)${escapedName}(?=\\s|$|[.,!?;:'"()\\[\\]{}])`,
-                "i"
-            );
-
-            const nameWasUsed = nameRegex.test(
-                message.content
-            );
+            const escapedName =
+                name.replace(
+                    /[.*+?^${}()|[\]\\]/g,
+                    "\\$&"
+                );
 
 
-            /*
-             * Check whether the member who created
-             * this Name Reaction was mentioned.
-             */
-            let memberWasMentioned = false;
+            const nameRegex =
+                new RegExp(
+                    `(^|\\s)${escapedName}(?=\\s|$|[.,!?;:'"()\\[\\]{}])`,
+                    "i"
+                );
+
+
+            const nameWasUsed =
+                nameRegex.test(
+                    message.content
+                );
+
+
+            let memberWasMentioned =
+                false;
+
 
             if (reaction.createdBy) {
 
@@ -148,13 +174,10 @@ async function handleNameReact(message) {
                     message.mentions.users.has(
                         reaction.createdBy
                     );
+
             }
 
 
-            /*
-             * Either the custom name OR the owner
-             * being mentioned can trigger it.
-             */
             if (
                 !nameWasUsed &&
                 !memberWasMentioned
@@ -163,13 +186,16 @@ async function handleNameReact(message) {
             }
 
 
-            /*
-             * React with every saved emoji.
-             */
-            for (const emoji of reaction.emojis) {
+            for (
+                const emoji
+                of reaction.emojis
+            ) {
 
                 const emojiId =
-                    getEmojiId(emoji);
+                    getEmojiId(
+                        emoji
+                    );
+
 
                 if (!emojiId) {
 
@@ -178,6 +204,7 @@ async function handleNameReact(message) {
                     );
 
                     continue;
+
                 }
 
 
@@ -195,14 +222,12 @@ async function handleNameReact(message) {
                     );
 
                 }
+
             }
 
 
-            /*
-             * We found the matching Name Reaction,
-             * so stop checking the remaining ones.
-             */
             break;
+
         }
 
     } catch (error) {
@@ -211,26 +236,130 @@ async function handleNameReact(message) {
             "Name reaction error:",
             error
         );
+
     }
+
 }
 
 
-/*
- * Discord messageCreate event
- */
+// ============================================================
+// HANDLE UPLOADER AUTO-MESSAGE
+// ============================================================
+
+async function handleUploaderMessage(message) {
+
+    try {
+
+        // ------------------------------------------------------
+        // ONLY RUN IN SPECIFIC CHANNELS
+        // ------------------------------------------------------
+
+        if (
+            !UPLOADER_CHANNEL_IDS.has(
+                message.channel.id
+            )
+        ) {
+            return;
+        }
+
+
+        // ------------------------------------------------------
+        // FIND PREVIOUS BOT UPLOADER MESSAGE
+        // ------------------------------------------------------
+
+        const messages =
+            await message.channel.messages.fetch({
+                limit: 20
+            });
+
+
+        const previousUploaderMessage =
+            messages.find(
+                msg =>
+                    msg.author.id ===
+                        message.client.user.id &&
+                    msg.content ===
+                        UPLOADER_MESSAGE
+            );
+
+
+        // ------------------------------------------------------
+        // DELETE PREVIOUS MESSAGE
+        // ------------------------------------------------------
+
+        if (
+            previousUploaderMessage
+        ) {
+
+            try {
+
+                await previousUploaderMessage.delete();
+
+            } catch (error) {
+
+                logger.warn(
+                    "Could not delete previous uploader message:",
+                    error
+                );
+
+            }
+
+        }
+
+
+        // ------------------------------------------------------
+        // SEND NEW MESSAGE
+        // ------------------------------------------------------
+
+        await message.channel.send(
+            UPLOADER_MESSAGE
+        );
+
+
+    } catch (error) {
+
+        logger.error(
+            "Uploader automatic message error:",
+            error
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// DISCORD MESSAGE CREATE EVENT
+// ============================================================
+
 export default {
 
     name: Events.MessageCreate,
 
-    async execute(message, client) {
+
+    async execute(
+        message,
+        client
+    ) {
 
         try {
 
-            /*
-             * Ignore bots and DMs.
-             */
+            // --------------------------------------------------
+            // IGNORE BOTS
+            // --------------------------------------------------
+
             if (
-                message.author.bot ||
+                message.author.bot
+            ) {
+                return;
+            }
+
+
+            // --------------------------------------------------
+            // IGNORE DMS
+            // --------------------------------------------------
+
+            if (
                 !message.guild
             ) {
                 return;
@@ -242,17 +371,28 @@ export default {
             );
 
 
-            /*
-             * .DIV AUTORESPONDER
-             */
+            // --------------------------------------------------
+            // UPLOADER AUTO-MESSAGE
+            // --------------------------------------------------
+
+            await handleUploaderMessage(
+                message
+            );
+
+
+            // --------------------------------------------------
+            // .DIV AUTORESPONDER
+            // --------------------------------------------------
+
             await handleDivAutoresponder(
                 message
             );
 
 
-            /*
-             * NAME REACTIONS
-             */
+            // --------------------------------------------------
+            // NAME REACTIONS
+            // --------------------------------------------------
+
             await handleNameReact(
                 message
             );
@@ -270,76 +410,3 @@ export default {
     }
 
 };
-
-// ============================================================
-// UPLOADER AUTO-MESSAGE
-// ============================================================
-
-if (
-  message.guild &&
-  !message.author.bot &&
-  UPLOADER_CHANNEL_IDS.has(message.channel.id)
-) {
-
-  try {
-
-    // --------------------------------------------------------
-    // FIND THE PREVIOUS UPLOADER MESSAGE
-    // --------------------------------------------------------
-
-    const messages =
-      await message.channel.messages.fetch({
-        limit: 20,
-      });
-
-
-    const previousUploaderMessage =
-      messages.find(
-        msg =>
-          msg.author.id === message.client.user.id &&
-          msg.content === UPLOADER_MESSAGE
-      );
-
-
-    // --------------------------------------------------------
-    // DELETE PREVIOUS MESSAGE
-    // --------------------------------------------------------
-
-    if (
-      previousUploaderMessage
-    ) {
-
-      try {
-
-        await previousUploaderMessage.delete();
-
-      } catch (error) {
-
-        console.warn(
-          'Could not delete previous uploader message:',
-          error.message
-        );
-
-      }
-
-    }
-
-
-    // --------------------------------------------------------
-    // SEND NEW MESSAGE
-    // --------------------------------------------------------
-
-    await message.channel.send(
-      UPLOADER_MESSAGE
-    );
-
-  } catch (error) {
-
-    console.error(
-      'Uploader automatic message error:',
-      error
-    );
-
-  }
-
-}
