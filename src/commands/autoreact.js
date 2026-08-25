@@ -1,112 +1,92 @@
 import {
     SlashCommandBuilder,
     MessageFlags,
-} from 'discord.js';
+} from "discord.js";
 
-import fs from 'fs';
-import path from 'path';
+import fs from "fs";
+import path from "path";
 
-import { createEmbed } from '../../utils/embeds.js';
-import { logger } from '../../utils/logger.js';
-import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { createEmbed } from "../../utils/embeds.js";
+import { logger } from "../../utils/logger.js";
+import { InteractionHelper } from "../../utils/interactionHelper.js";
 
 
 // ============================================================
 // FILE
 // ============================================================
 
-const DATA_DIRECTORY = path.join(
-    process.cwd(),
-    'data'
-);
-
 const AUTO_REACTION_FILE = path.join(
-    DATA_DIRECTORY,
-    'autoReactions.json'
+    process.cwd(),
+    "data",
+    "autoReactions.json"
 );
 
 
 // ============================================================
-// ALLOWED CHANNELS
+// SETTINGS
 // ============================================================
 
-const AUTO_REACTION_CHANNEL_IDS = new Set([
-    '1541254619999637624',
-    '1541678571091660911',
-    '1541679032234680350',
-    '1541678933118816267',
-    '1541679251940712498',
-]);
+const AUTO_REACTION_EMOJIS = [
+    "1532299228452356106",
+    "1532299246278283325"
+];
 
 
-// ============================================================
-// DEFAULT EMOJIS
-// ============================================================
-
-const DEFAULT_EMOJIS = [
-    '1532299228452356106',
-    '1532299246278283325',
+const AUTO_REACTION_CHANNELS = [
+    "1541254619999637624",
+    "1541678571091660911",
+    "1541679032234680350",
+    "1541678933118816267",
+    "1541679251940712498"
 ];
 
 
 // ============================================================
-// LOAD DATA
+// LOAD
 // ============================================================
 
 function loadAutoReactions() {
 
     try {
 
-        if (!fs.existsSync(DATA_DIRECTORY)) {
+        if (
+            !fs.existsSync(
+                AUTO_REACTION_FILE
+            )
+        ) {
 
-            fs.mkdirSync(
-                DATA_DIRECTORY,
-                {
-                    recursive: true,
-                }
-            );
-
-        }
-
-
-        if (!fs.existsSync(AUTO_REACTION_FILE)) {
-
-            fs.writeFileSync(
-                AUTO_REACTION_FILE,
-                JSON.stringify(
-                    {},
-                    null,
-                    2
-                ),
-                'utf8'
-            );
+            return [];
 
         }
 
 
-        const raw =
+        const rawData =
             fs.readFileSync(
                 AUTO_REACTION_FILE,
-                'utf8'
+                "utf8"
             );
 
 
-        if (!raw.trim()) {
-            return {};
+        if (
+            !rawData.trim()
+        ) {
+
+            return [];
+
         }
 
 
         const data =
-            JSON.parse(raw);
+            JSON.parse(
+                rawData
+            );
 
 
         if (
-            typeof data !== 'object' ||
-            data === null ||
-            Array.isArray(data)
+            !Array.isArray(data)
         ) {
 
-            return {};
+            return [];
 
         }
 
@@ -116,11 +96,11 @@ function loadAutoReactions() {
     } catch (error) {
 
         logger.error(
-            'Failed to load auto reactions:',
+            "Failed to load auto reactions:",
             error
         );
 
-        return {};
+        return [];
 
     }
 
@@ -128,19 +108,29 @@ function loadAutoReactions() {
 
 
 // ============================================================
-// SAVE DATA
+// SAVE
 // ============================================================
 
-function saveAutoReactions(data) {
+function saveAutoReactions(
+    reactions
+) {
 
     try {
 
-        if (!fs.existsSync(DATA_DIRECTORY)) {
+        const directory =
+            path.dirname(
+                AUTO_REACTION_FILE
+            );
+
+
+        if (
+            !fs.existsSync(directory)
+        ) {
 
             fs.mkdirSync(
-                DATA_DIRECTORY,
+                directory,
                 {
-                    recursive: true,
+                    recursive: true
                 }
             );
 
@@ -150,11 +140,11 @@ function saveAutoReactions(data) {
         fs.writeFileSync(
             AUTO_REACTION_FILE,
             JSON.stringify(
-                data,
+                reactions,
                 null,
                 2
             ),
-            'utf8'
+            "utf8"
         );
 
 
@@ -163,7 +153,7 @@ function saveAutoReactions(data) {
     } catch (error) {
 
         logger.error(
-            'Failed to save auto reactions:',
+            "Failed to save auto reactions:",
             error
         );
 
@@ -182,79 +172,102 @@ export default {
 
     data: new SlashCommandBuilder()
 
-        .setName('autoreact')
+        .setName("autoreact")
 
         .setDescription(
-            'Manage automatic reactions'
+            "Manage automatic reactions"
         )
 
         .setDefaultMemberPermissions(
-            '8'
+            "8"
         )
+
+
+        // ----------------------------------------------------
+        // ADD
+        // ----------------------------------------------------
 
         .addSubcommand(
             subcommand =>
                 subcommand
 
-                    .setName('add')
+                    .setName("add")
 
                     .setDescription(
-                        'Create an automatic reaction trigger'
+                        "Create an automatic reaction"
                     )
 
                     .addStringOption(
                         option =>
                             option
-                                .setName('trigger')
+
+                                .setName("trigger")
+
                                 .setDescription(
-                                    'The word or phrase that should trigger the reactions'
+                                    "The word or phrase that triggers the reactions"
                                 )
+
                                 .setRequired(true)
                     )
-
         )
+
+
+        // ----------------------------------------------------
+        // REMOVE
+        // ----------------------------------------------------
 
         .addSubcommand(
             subcommand =>
                 subcommand
 
-                    .setName('remove')
+                    .setName("remove")
 
                     .setDescription(
-                        'Remove an automatic reaction trigger'
+                        "Remove an automatic reaction"
                     )
 
                     .addStringOption(
                         option =>
                             option
-                                .setName('trigger')
+
+                                .setName("trigger")
+
                                 .setDescription(
-                                    'The word or phrase to remove'
+                                    "The trigger to remove"
                                 )
+
                                 .setRequired(true)
                     )
-
         )
+
+
+        // ----------------------------------------------------
+        // LIST
+        // ----------------------------------------------------
 
         .addSubcommand(
             subcommand =>
                 subcommand
 
-                    .setName('list')
+                    .setName("list")
 
                     .setDescription(
-                        'Show all automatic reaction triggers'
+                        "List automatic reactions"
                     )
         ),
 
 
     // ========================================================
-    // PREFIX COMMAND
+    // PREFIX
     // ========================================================
 
-    async prefixExecute(interaction) {
+    async prefixExecute(
+        interaction
+    ) {
 
-        return this.execute(interaction);
+        return this.execute(
+            interaction
+        );
 
     },
 
@@ -263,28 +276,25 @@ export default {
     // EXECUTE
     // ========================================================
 
-    async execute(interaction) {
+    async execute(
+        interaction
+    ) {
 
         const deferSuccess =
             await InteractionHelper.safeDefer(
                 interaction,
                 {
-                    ephemeral: true,
+                    ephemeral: true
                 }
             );
 
 
-        if (!deferSuccess) {
+        if (
+            !deferSuccess
+        ) {
 
             logger.warn(
-                'AutoReact interaction defer failed',
-                {
-                    userId:
-                        interaction.user.id,
-
-                    guildId:
-                        interaction.guildId,
-                }
+                "AutoReact interaction defer failed"
             );
 
             return;
@@ -294,19 +304,29 @@ export default {
 
         try {
 
-            if (!interaction.guild) {
+            // ------------------------------------------------
+            // SERVER CHECK
+            // ------------------------------------------------
+
+            if (
+                !interaction.guild
+            ) {
 
                 return InteractionHelper.safeEditReply(
                     interaction,
                     {
                         embeds: [
                             createEmbed({
-                                title: 'Auto Reaction',
+                                title:
+                                    "Auto Reaction",
+
                                 description:
-                                    'This command can only be used inside a server.',
-                                color: 'error',
-                            }),
-                        ],
+                                    "This command can only be used inside a server.",
+
+                                color:
+                                    "error"
+                            })
+                        ]
                     }
                 );
 
@@ -321,60 +341,114 @@ export default {
                 loadAutoReactions();
 
 
-            // ==================================================
+            // =================================================
             // ADD
-            // ==================================================
+            // =================================================
 
             if (
-                subcommand === 'add'
+                subcommand === "add"
             ) {
 
                 const trigger =
                     interaction.options
                         .getString(
-                            'trigger',
+                            "trigger",
                             true
                         )
                         .trim()
                         .toLowerCase();
 
 
-                if (!trigger) {
+                if (
+                    !trigger
+                ) {
 
                     return InteractionHelper.safeEditReply(
                         interaction,
                         {
                             embeds: [
                                 createEmbed({
-                                    title: 'Auto Reaction',
+                                    title:
+                                        "Auto Reaction",
+
                                     description:
-                                        'You need to provide a trigger word or phrase.',
-                                    color: 'error',
-                                }),
-                            ],
+                                        "You must provide a trigger phrase.",
+
+                                    color:
+                                        "error"
+                                })
+                            ]
                         }
                     );
 
                 }
 
 
-                reactions[trigger] = {
+                // ---------------------------------------------
+                // CHECK DUPLICATE
+                // ---------------------------------------------
+
+                const existing =
+                    reactions.find(
+                        reaction =>
+                            String(
+                                reaction?.phrase || ""
+                            )
+                            .toLowerCase() ===
+                            trigger
+                    );
+
+
+                if (
+                    existing
+                ) {
+
+                    return InteractionHelper.safeEditReply(
+                        interaction,
+                        {
+                            embeds: [
+                                createEmbed({
+                                    title:
+                                        "Auto Reaction",
+
+                                    description:
+                                        `The trigger **${trigger}** already exists.`,
+
+                                    color:
+                                        "error"
+                                })
+                            ]
+                        }
+                    );
+
+                }
+
+
+                // ---------------------------------------------
+                // CREATE
+                // ---------------------------------------------
+
+                reactions.push({
+
+                    phrase:
+                        trigger,
 
                     emojis:
-                        DEFAULT_EMOJIS,
+                        AUTO_REACTION_EMOJIS,
 
                     channels:
-                        Array.from(
-                            AUTO_REACTION_CHANNEL_IDS
-                        ),
+                        AUTO_REACTION_CHANNELS,
+
+                    enabled:
+                        true,
 
                     createdBy:
                         interaction.user.id,
 
                     createdAt:
-                        new Date().toISOString(),
+                        new Date().toISOString()
 
-                };
+                });
 
 
                 const saved =
@@ -383,19 +457,25 @@ export default {
                     );
 
 
-                if (!saved) {
+                if (
+                    !saved
+                ) {
 
                     return InteractionHelper.safeEditReply(
                         interaction,
                         {
                             embeds: [
                                 createEmbed({
-                                    title: 'Auto Reaction',
+                                    title:
+                                        "Auto Reaction",
+
                                     description:
-                                        'I could not save the automatic reaction.',
-                                    color: 'error',
-                                }),
-                            ],
+                                        "I could not save the automatic reaction.",
+
+                                    color:
+                                        "error"
+                                })
+                            ]
                         }
                     );
 
@@ -407,38 +487,51 @@ export default {
                     {
                         embeds: [
                             createEmbed({
-                                title: 'Auto Reaction Created',
+                                title:
+                                    "Auto Reaction Created",
+
                                 description:
-                                    `The trigger **${trigger}** has been created.\n\n` +
-                                    `It will react with both selected emotes in the configured channels.`,
-                            }),
-                        ],
+                                    `The trigger **${trigger}** is now active.\n\n` +
+                                    "The bot will react with both selected emotes when the phrase is used in the configured channels."
+                            })
+                        ]
                     }
                 );
 
             }
 
 
-            // ==================================================
+            // =================================================
             // REMOVE
-            // ==================================================
+            // =================================================
 
             if (
-                subcommand === 'remove'
+                subcommand === "remove"
             ) {
 
                 const trigger =
                     interaction.options
                         .getString(
-                            'trigger',
+                            "trigger",
                             true
                         )
                         .trim()
                         .toLowerCase();
 
 
+                const index =
+                    reactions.findIndex(
+                        reaction =>
+                            String(
+                                reaction?.phrase || ""
+                            )
+                            .toLowerCase() ===
+                            trigger
+                    );
+
+
                 if (
-                    !reactions[trigger]
+                    index === -1
                 ) {
 
                     return InteractionHelper.safeEditReply(
@@ -446,19 +539,26 @@ export default {
                         {
                             embeds: [
                                 createEmbed({
-                                    title: 'Auto Reaction',
+                                    title:
+                                        "Auto Reaction",
+
                                     description:
-                                        `There is no automatic reaction for **${trigger}**.`,
-                                    color: 'error',
-                                }),
-                            ],
+                                        `No automatic reaction exists for **${trigger}**.`,
+
+                                    color:
+                                        "error"
+                                })
+                            ]
                         }
                     );
 
                 }
 
 
-                delete reactions[trigger];
+                reactions.splice(
+                    index,
+                    1
+                );
 
 
                 const saved =
@@ -467,57 +567,8 @@ export default {
                     );
 
 
-                if (!saved) {
-
-                    return InteractionHelper.safeEditReply(
-                        interaction,
-                        {
-                            embeds: [
-                                createEmbed({
-                                    title: 'Auto Reaction',
-                                    description:
-                                        'I could not save the changes.',
-                                    color: 'error',
-                                }),
-                            ],
-                        }
-                    );
-
-                }
-
-
-                return InteractionHelper.safeEditReply(
-                    interaction,
-                    {
-                        embeds: [
-                            createEmbed({
-                                title: 'Auto Reaction Removed',
-                                description:
-                                    `The automatic reaction **${trigger}** has been removed.`,
-                            }),
-                        ],
-                    }
-                );
-
-            }
-
-
-            // ==================================================
-            // LIST
-            // ==================================================
-
-            if (
-                subcommand === 'list'
-            ) {
-
-                const triggers =
-                    Object.keys(
-                        reactions
-                    );
-
-
                 if (
-                    triggers.length === 0
+                    !saved
                 ) {
 
                     return InteractionHelper.safeEditReply(
@@ -525,24 +576,20 @@ export default {
                         {
                             embeds: [
                                 createEmbed({
-                                    title: 'Auto Reactions',
+                                    title:
+                                        "Auto Reaction",
+
                                     description:
-                                        'There are currently no automatic reactions configured.',
-                                }),
-                            ],
+                                        "I could not save the changes.",
+
+                                    color:
+                                        "error"
+                                })
+                            ]
                         }
                     );
 
                 }
-
-
-                const description =
-                    triggers
-                        .map(
-                            trigger =>
-                                `> **${trigger}**`
-                        )
-                        .join('\n');
 
 
                 return InteractionHelper.safeEditReply(
@@ -550,10 +597,70 @@ export default {
                     {
                         embeds: [
                             createEmbed({
-                                title: 'Auto Reactions',
-                                description,
-                            }),
-                        ],
+                                title:
+                                    "Auto Reaction Removed",
+
+                                description:
+                                    `The trigger **${trigger}** has been removed.`
+                            })
+                        ]
+                    }
+                );
+
+            }
+
+
+            // =================================================
+            // LIST
+            // =================================================
+
+            if (
+                subcommand === "list"
+            ) {
+
+                if (
+                    reactions.length === 0
+                ) {
+
+                    return InteractionHelper.safeEditReply(
+                        interaction,
+                        {
+                            embeds: [
+                                createEmbed({
+                                    title:
+                                        "Auto Reactions",
+
+                                    description:
+                                        "There are currently no automatic reactions configured."
+                                })
+                            ]
+                        }
+                    );
+
+                }
+
+
+                const list =
+                    reactions
+                        .map(
+                            reaction =>
+                                `> **${reaction.phrase}**`
+                        )
+                        .join("\n");
+
+
+                return InteractionHelper.safeEditReply(
+                    interaction,
+                    {
+                        embeds: [
+                            createEmbed({
+                                title:
+                                    "Auto Reactions",
+
+                                description:
+                                    list
+                            })
+                        ]
                     }
                 );
 
@@ -562,7 +669,7 @@ export default {
         } catch (error) {
 
             logger.error(
-                'AutoReact command error:',
+                "AutoReact command error:",
                 error
             );
 
@@ -574,19 +681,23 @@ export default {
                     {
                         embeds: [
                             createEmbed({
-                                title: 'System Error',
+                                title:
+                                    "System Error",
+
                                 description:
-                                    'Something went wrong while managing the automatic reactions.',
-                                color: 'error',
-                            }),
-                        ],
+                                    "Something went wrong while managing automatic reactions.",
+
+                                color:
+                                    "error"
+                            })
+                        ]
                     }
                 );
 
             } catch (replyError) {
 
                 logger.error(
-                    'Failed to send AutoReact error:',
+                    "Failed to send AutoReact error reply:",
                     replyError
                 );
 
@@ -594,6 +705,6 @@ export default {
 
         }
 
-    },
+    }
 
 };
