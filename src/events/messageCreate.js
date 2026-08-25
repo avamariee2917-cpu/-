@@ -4,6 +4,7 @@ import path from "path";
 
 import { logger } from "../utils/logger.js";
 import { handleDivAutoresponder } from "../services/divAutoresponder.js";
+import { handleAutoReaction } from "../services/autoReactionService.js";
 
 
 // ============================================================
