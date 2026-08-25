@@ -1,17 +1,13 @@
-import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import {
+    SlashCommandBuilder,
+    PermissionFlagsBits,
+    MessageFlags
+} from "discord.js";
 
 import {
     loadAutoReactions,
     saveAutoReactions
 } from "../../services/autoReactionService.js";
-
-import { logger } from "../../utils/logger.js";
-import { InteractionHelper } from "../../utils/interactionHelper.js";
-
-
-// ============================================================
-// AUTO REACTION COMMAND
-// ============================================================
 
 export default {
 
@@ -20,26 +16,31 @@ export default {
         .setName("autoreaction")
 
         .setDescription(
-            "Manage automatic reactions for messages."
+            "Manage automatic reaction triggers"
         )
 
+        .setDefaultMemberPermissions(
+            PermissionFlagsBits.ManageGuild.toString()
+        )
 
-        // ----------------------------------------------------
+        // ====================================================
         // ADD
-        // ----------------------------------------------------
+        // ====================================================
 
         .addSubcommand(subcommand =>
             subcommand
+
                 .setName("add")
+
                 .setDescription(
-                    "Create an automatic reaction phrase."
+                    "Create a new automatic reaction"
                 )
 
                 .addStringOption(option =>
                     option
                         .setName("phrase")
                         .setDescription(
-                            "The phrase that will trigger the reactions."
+                            "The phrase that triggers the reactions"
                         )
                         .setRequired(true)
                 )
@@ -48,7 +49,7 @@ export default {
                     option
                         .setName("emoji1")
                         .setDescription(
-                            "First custom emoji ID."
+                            "First custom emoji ID"
                         )
                         .setRequired(true)
                 )
@@ -57,70 +58,96 @@ export default {
                     option
                         .setName("emoji2")
                         .setDescription(
-                            "Second custom emoji ID."
+                            "Second custom emoji ID"
                         )
                         .setRequired(true)
                 )
+
+                .addChannelOption(option =>
+                    option
+                        .setName("channel1")
+                        .setDescription(
+                            "First channel where it works"
+                        )
+                        .setRequired(true)
+                )
+
+                .addChannelOption(option =>
+                    option
+                        .setName("channel2")
+                        .setDescription(
+                            "Second channel where it works"
+                        )
+                        .setRequired(false)
+                )
+
+                .addChannelOption(option =>
+                    option
+                        .setName("channel3")
+                        .setDescription(
+                            "Third channel where it works"
+                        )
+                        .setRequired(false)
+                )
+
+                .addChannelOption(option =>
+                    option
+                        .setName("channel4")
+                        .setDescription(
+                            "Fourth channel where it works"
+                        )
+                        .setRequired(false)
+                )
+
+                .addChannelOption(option =>
+                    option
+                        .setName("channel5")
+                        .setDescription(
+                            "Fifth channel where it works"
+                        )
+                        .setRequired(false)
+                )
         )
 
-
-        // ----------------------------------------------------
+        // ====================================================
         // REMOVE
-        // ----------------------------------------------------
+        // ====================================================
 
         .addSubcommand(subcommand =>
             subcommand
+
                 .setName("remove")
+
                 .setDescription(
-                    "Remove an automatic reaction phrase."
+                    "Remove an automatic reaction"
                 )
 
                 .addStringOption(option =>
                     option
                         .setName("phrase")
                         .setDescription(
-                            "The phrase to remove."
+                            "The phrase to remove"
                         )
                         .setRequired(true)
                 )
         )
 
-
-        // ----------------------------------------------------
+        // ====================================================
         // LIST
-        // ----------------------------------------------------
+        // ====================================================
 
         .addSubcommand(subcommand =>
             subcommand
+
                 .setName("list")
+
                 .setDescription(
-                    "View all automatic reaction phrases."
+                    "View automatic reactions"
                 )
         ),
 
 
-    // ========================================================
-    // EXECUTE
-    // ========================================================
-
     async execute(interaction) {
-
-        const deferSuccess =
-            await InteractionHelper.safeDefer(
-                interaction
-            );
-
-
-        if (!deferSuccess) {
-
-            logger.warn(
-                "AutoReaction interaction defer failed."
-            );
-
-            return;
-
-        }
-
 
         try {
 
@@ -128,8 +155,74 @@ export default {
                 interaction.options.getSubcommand();
 
 
-            const reactions =
-                loadAutoReactions();
+            // ==================================================
+            // LIST
+            // ==================================================
+
+            if (
+                subcommand === "list"
+            ) {
+
+                const reactions =
+                    loadAutoReactions();
+
+
+                if (
+                    reactions.length === 0
+                ) {
+
+                    return interaction.reply({
+                        content:
+                            "There are currently no automatic reactions configured.",
+                        flags:
+                            MessageFlags.Ephemeral
+                    });
+
+                }
+
+
+                const lines =
+                    reactions.map(
+                        reaction => {
+
+                            const channels =
+                                Array.isArray(
+                                    reaction.channels
+                                )
+                                    ? reaction.channels
+                                        .map(
+                                            id =>
+                                                `<#${id}>`
+                                        )
+                                        .join(", ")
+                                    : "None";
+
+
+                            const status =
+                                reaction.enabled === false
+                                    ? "Disabled"
+                                    : "Enabled";
+
+
+                            return (
+                                `**${reaction.phrase}**\n` +
+                                `> Status: ${status}\n` +
+                                `> Channels: ${channels}\n` +
+                                `> Reactions: ${reaction.emojis.join(", ")}`
+                            );
+
+                        }
+                    );
+
+
+                return interaction.reply({
+                    content:
+                        lines.join("\n\n"),
+                    flags:
+                        MessageFlags.Ephemeral
+                });
+
+            }
 
 
             // ==================================================
@@ -143,8 +236,7 @@ export default {
                 const phrase =
                     interaction.options
                         .getString("phrase")
-                        .trim()
-                        .toLowerCase();
+                        .trim();
 
 
                 const emoji1 =
@@ -159,50 +251,45 @@ export default {
                         .trim();
 
 
-                if (!phrase) {
-
-                    return InteractionHelper.safeEditReply(
-                        interaction,
-                        {
-                            content:
-                                "You must provide a phrase."
-                        }
-                    );
-
-                }
+                const channelOptions = [
+                    "channel1",
+                    "channel2",
+                    "channel3",
+                    "channel4",
+                    "channel5"
+                ];
 
 
-                // ----------------------------------------------
-                // CHECK FOR EXISTING PHRASE
-                // ----------------------------------------------
+                const channels =
+                    channelOptions
+                        .map(
+                            optionName =>
+                                interaction.options
+                                    .getChannel(optionName)
+                        )
+                        .filter(Boolean)
+                        .map(
+                            channel =>
+                                channel.id
+                        );
 
-                const existing =
-                    reactions.find(
+
+                const reactions =
+                    loadAutoReactions();
+
+
+                const existingIndex =
+                    reactions.findIndex(
                         reaction =>
-                            reaction.phrase
-                                ?.toLowerCase() ===
-                            phrase
+                            String(
+                                reaction.phrase
+                            )
+                            .toLowerCase() ===
+                            phrase.toLowerCase()
                     );
 
 
-                if (existing) {
-
-                    return InteractionHelper.safeEditReply(
-                        interaction,
-                        {
-                            content:
-                                `❌ An auto reaction for **${phrase}** already exists.`
-                        }
-                    );
-
-                }
-
-
-                // ----------------------------------------------
-                // CREATE REACTION
-                // ----------------------------------------------
-
-                reactions.push({
+                const newReaction = {
 
                     phrase,
 
@@ -211,37 +298,56 @@ export default {
                         emoji2
                     ],
 
-                    channels: [
-                        "1541254619999637624",
-                        "1541678571091660911",
-                        "1541679032234680350",
-                        "1541678933118816267",
-                        "1541679251940712498"
-                    ],
+                    channels,
 
                     enabled: true
 
-                });
+                };
 
 
-                saveAutoReactions(
-                    reactions
-                );
+                if (
+                    existingIndex !== -1
+                ) {
+
+                    reactions[
+                        existingIndex
+                    ] =
+                        newReaction;
+
+                } else {
+
+                    reactions.push(
+                        newReaction
+                    );
+
+                }
 
 
-                return InteractionHelper.safeEditReply(
-                    interaction,
-                    {
+                const saved =
+                    saveAutoReactions(
+                        reactions
+                    );
 
+
+                if (!saved) {
+
+                    return interaction.reply({
                         content:
-                            `♱ ⋆˙ Auto reaction created!\n\n` +
-                            `> **Phrase:** \`${phrase}\`\n` +
-                            `> **Emoji 1:** ${emoji1}\n` +
-                            `> **Emoji 2:** ${emoji2}\n\n` +
-                            `The reaction will work in the configured channels.`
+                            "I couldn't save the automatic reaction.",
+                        flags:
+                            MessageFlags.Ephemeral
+                    });
 
-                    }
-                );
+                }
+
+
+                return interaction.reply({
+                    content:
+                        `Automatic reaction created for **${phrase}**.\n` +
+                        `Channels: ${channels.map(id => `<#${id}>`).join(", ")}`,
+                    flags:
+                        MessageFlags.Ephemeral
+                });
 
             }
 
@@ -257,123 +363,82 @@ export default {
                 const phrase =
                     interaction.options
                         .getString("phrase")
-                        .trim()
-                        .toLowerCase();
+                        .trim();
 
 
-                const index =
-                    reactions.findIndex(
+                const reactions =
+                    loadAutoReactions();
+
+
+                const filtered =
+                    reactions.filter(
                         reaction =>
-                            reaction.phrase
-                                ?.toLowerCase() ===
-                            phrase
+                            String(
+                                reaction.phrase
+                            )
+                            .toLowerCase() !==
+                            phrase.toLowerCase()
                     );
 
 
                 if (
-                    index === -1
+                    filtered.length ===
+                    reactions.length
                 ) {
 
-                    return InteractionHelper.safeEditReply(
-                        interaction,
-                        {
-
-                            content:
-                                `I couldn't find an auto reaction for **${phrase}**.`
-
-                        }
-                    );
+                    return interaction.reply({
+                        content:
+                            `I couldn't find an automatic reaction for **${phrase}**.`,
+                        flags:
+                            MessageFlags.Ephemeral
+                    });
 
                 }
-
-
-                reactions.splice(
-                    index,
-                    1
-                );
 
 
                 saveAutoReactions(
-                    reactions
+                    filtered
                 );
 
 
-                return InteractionHelper.safeEditReply(
-                    interaction,
-                    {
-
-                        content:
-                            `♱ ⋆˙ Removed the auto reaction for **${phrase}**.`
-
-                    }
-                );
-
-            }
-
-
-            // ==================================================
-            // LIST
-            // ==================================================
-
-            if (
-                subcommand === "list"
-            ) {
-
-                if (
-                    reactions.length === 0
-                ) {
-
-                    return InteractionHelper.safeEditReply(
-                        interaction,
-                        {
-
-                            content:
-                                "There are currently no automatic reactions."
-
-                        }
-                    );
-
-                }
-
-
-                const list =
-                    reactions
-                        .map(
-                            (reaction, index) =>
-                                `**${index + 1}.** \`${reaction.phrase}\` → ${reaction.emojis.join(" ")}`
-                        )
-                        .join("\n");
-
-
-                return InteractionHelper.safeEditReply(
-                    interaction,
-                    {
-
-                        content:
-                            `♱ ⋆˙ **Automatic Reactions**\n\n${list}`
-
-                    }
-                );
+                return interaction.reply({
+                    content:
+                        `Removed the automatic reaction for **${phrase}**.`,
+                    flags:
+                        MessageFlags.Ephemeral
+                });
 
             }
 
         } catch (error) {
 
-            logger.error(
+            console.error(
                 "Auto reaction command error:",
                 error
             );
 
 
-            return InteractionHelper.safeEditReply(
-                interaction,
-                {
+            if (
+                interaction.replied ||
+                interaction.deferred
+            ) {
 
+                return interaction.followUp({
                     content:
-                        "An error occurred while managing the auto reaction."
+                        "Something went wrong while managing the automatic reaction.",
+                    flags:
+                        MessageFlags.Ephemeral
+                });
 
-                }
-            );
+            }
+
+
+            return interaction.reply({
+                content:
+                    "Something went wrong while managing the automatic reaction.",
+                flags:
+                    MessageFlags.Ephemeral
+            });
 
         }
 
