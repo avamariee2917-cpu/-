@@ -5,7 +5,7 @@ import { logger } from "../utils/logger.js";
 
 
 // ============================================================
-// AUTO REACTION SETTINGS
+// AUTO REACTION FILE
 // ============================================================
 
 const AUTO_REACTION_FILE = path.join(
@@ -16,33 +16,26 @@ const AUTO_REACTION_FILE = path.join(
 
 
 // ============================================================
-// DEFAULT AUTO REACTION
+// DEFAULT SETTINGS
 // ============================================================
 
-const DEFAULT_AUTO_REACTIONS = [
-    {
-        phrase: "this or that",
+const DEFAULT_EMOJIS = [
+    "1532299228452356106",
+    "1532299246278283325"
+];
 
-        emojis: [
-            "1532299228452356106",
-            "1532299246278283325"
-        ],
 
-        channels: [
-            "1541254619999637624",
-            "1541678571091660911",
-            "1541679032234680350",
-            "1541678933118816267",
-            "1541679251940712498"
-        ],
-
-        enabled: true
-    }
+const DEFAULT_CHANNELS = [
+    "1541254619999637624",
+    "1541678571091660911",
+    "1541679032234680350",
+    "1541678933118816267",
+    "1541679251940712498"
 ];
 
 
 // ============================================================
-// ENSURE DATA FILE
+// ENSURE FILE
 // ============================================================
 
 function ensureAutoReactionFile() {
@@ -56,9 +49,7 @@ function ensureAutoReactionFile() {
 
 
         if (
-            !fs.existsSync(
-                directory
-            )
+            !fs.existsSync(directory)
         ) {
 
             fs.mkdirSync(
@@ -79,11 +70,7 @@ function ensureAutoReactionFile() {
 
             fs.writeFileSync(
                 AUTO_REACTION_FILE,
-                JSON.stringify(
-                    DEFAULT_AUTO_REACTIONS,
-                    null,
-                    2
-                ),
+                "[]",
                 "utf8"
             );
 
@@ -102,7 +89,7 @@ function ensureAutoReactionFile() {
 
 
 // ============================================================
-// LOAD AUTO REACTIONS
+// LOAD
 // ============================================================
 
 function loadAutoReactions() {
@@ -122,7 +109,7 @@ function loadAutoReactions() {
             !rawData.trim()
         ) {
 
-            return DEFAULT_AUTO_REACTIONS;
+            return [];
 
         }
 
@@ -138,10 +125,10 @@ function loadAutoReactions() {
         ) {
 
             logger.warn(
-                "Invalid auto reaction data. Using defaults."
+                "Invalid auto reaction data. Resetting to an empty list."
             );
 
-            return DEFAULT_AUTO_REACTIONS;
+            return [];
 
         }
 
@@ -155,7 +142,7 @@ function loadAutoReactions() {
             error
         );
 
-        return DEFAULT_AUTO_REACTIONS;
+        return [];
 
     }
 
@@ -163,7 +150,7 @@ function loadAutoReactions() {
 
 
 // ============================================================
-// SAVE AUTO REACTIONS
+// SAVE
 // ============================================================
 
 function saveAutoReactions(
@@ -202,7 +189,7 @@ function saveAutoReactions(
 
 
 // ============================================================
-// CHECK AUTO REACTIONS
+// HANDLE AUTO REACTION
 // ============================================================
 
 export async function handleAutoReaction(
@@ -210,6 +197,10 @@ export async function handleAutoReaction(
 ) {
 
     try {
+
+        // ----------------------------------------------------
+        // BASIC CHECKS
+        // ----------------------------------------------------
 
         if (
             !message ||
@@ -235,20 +226,24 @@ export async function handleAutoReaction(
         }
 
 
-        const messageContent =
+        const content =
             String(
                 message.content || ""
-            ).toLowerCase();
+            );
 
 
         if (
-            !messageContent
+            !content.trim()
         ) {
 
             return;
 
         }
 
+
+        // ----------------------------------------------------
+        // CHECK EVERY AUTO REACTION
+        // ----------------------------------------------------
 
         for (
             const reaction
@@ -268,10 +263,10 @@ export async function handleAutoReaction(
             if (
                 !reaction.phrase ||
                 !Array.isArray(
-                    reaction.channels
+                    reaction.emojis
                 ) ||
                 !Array.isArray(
-                    reaction.emojis
+                    reaction.channels
                 )
             ) {
 
@@ -316,17 +311,6 @@ export async function handleAutoReaction(
             }
 
 
-            /*
-             * Match the phrase as a complete phrase.
-             *
-             * "this or that"      -> triggers
-             * "THIS OR THAT"      -> triggers
-             * "this or that?"     -> triggers
-             * "this or that!!!"   -> triggers
-             *
-             * "this or thats"     -> does not trigger
-             */
-
             const escapedPhrase =
                 phrase.replace(
                     /[.*+?^${}()|[\]\\]/g,
@@ -343,7 +327,7 @@ export async function handleAutoReaction(
 
             if (
                 !phraseRegex.test(
-                    message.content
+                    content
                 )
             ) {
 
@@ -353,7 +337,7 @@ export async function handleAutoReaction(
 
 
             // ------------------------------------------------
-            // ADD REACTIONS
+            // REACT
             // ------------------------------------------------
 
             for (
@@ -367,7 +351,6 @@ export async function handleAutoReaction(
                         emojiId
                     );
 
-
                 } catch (error) {
 
                     logger.warn(
@@ -380,10 +363,9 @@ export async function handleAutoReaction(
             }
 
 
-            /*
-             * Stop after the first matching
-             * auto reaction.
-             */
+            // ------------------------------------------------
+            // ONLY FIRST MATCH
+            // ------------------------------------------------
 
             break;
 
@@ -402,10 +384,12 @@ export async function handleAutoReaction(
 
 
 // ============================================================
-// EXPORT SETTINGS FUNCTIONS
+// EXPORT
 // ============================================================
 
 export {
     loadAutoReactions,
-    saveAutoReactions
+    saveAutoReactions,
+    DEFAULT_EMOJIS,
+    DEFAULT_CHANNELS
 };
