@@ -250,40 +250,63 @@ async function handleUploaderMessage(message) {
 
     try {
 
-        // Only run in uploader channels
+        // Only run in the uploader channels
         if (!UPLOADER_CHANNEL_IDS.has(message.channel.id)) {
             return;
         }
 
-        // Get recent messages
+        // Get recent messages in the channel
         const messages = await message.channel.messages.fetch({
             limit: 50
         });
 
-        // Find the bot's previous uploader message
-        const previousUploaderMessages = messages.filter(
+        // Find messages sent by THIS bot
+        const botMessages = messages.filter(
             msg =>
-                msg.author.id === message.client.user.id &&
-                msg.content === UPLOADER_MESSAGE
+                msg.author.id === message.client.user.id
         );
 
-        // Delete any old uploader messages
-        for (const oldMessage of previousUploaderMessages.values()) {
+        // Delete the previous uploader message(s)
+        for (const botMessage of botMessages.values()) {
 
-            try {
+            // Only delete our uploader message
+            if (
+                botMessage.content.includes("become a uploader") &&
+                botMessage.content.includes("open a ticket here")
+            ) {
 
-                await oldMessage.delete();
-
-            } catch (error) {
-
-                logger.warn(
-                    "Could not delete old uploader message:",
-                    error.message
-                );
+                try {
+                    await botMessage.delete();
+                } catch (error) {
+                    logger.warn(
+                        "Could not delete old uploader message:",
+                        error.message
+                    );
+                }
 
             }
 
         }
+
+        // Send the new uploader message
+        await message.channel.send({
+            content: UPLOADER_MESSAGE
+        });
+
+        logger.info(
+            `Uploader message sent in channel ${message.channel.id}`
+        );
+
+    } catch (error) {
+
+        logger.error(
+            "Uploader automatic message error:",
+            error
+        );
+
+    }
+
+}
 
         // Send a fresh uploader message
         await message.channel.send({
