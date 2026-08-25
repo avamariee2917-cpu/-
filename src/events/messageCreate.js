@@ -270,3 +270,76 @@ export default {
     }
 
 };
+
+// ============================================================
+// UPLOADER AUTO-MESSAGE
+// ============================================================
+
+if (
+  message.guild &&
+  !message.author.bot &&
+  UPLOADER_CHANNEL_IDS.has(message.channel.id)
+) {
+
+  try {
+
+    // --------------------------------------------------------
+    // FIND THE PREVIOUS UPLOADER MESSAGE
+    // --------------------------------------------------------
+
+    const messages =
+      await message.channel.messages.fetch({
+        limit: 20,
+      });
+
+
+    const previousUploaderMessage =
+      messages.find(
+        msg =>
+          msg.author.id === message.client.user.id &&
+          msg.content === UPLOADER_MESSAGE
+      );
+
+
+    // --------------------------------------------------------
+    // DELETE PREVIOUS MESSAGE
+    // --------------------------------------------------------
+
+    if (
+      previousUploaderMessage
+    ) {
+
+      try {
+
+        await previousUploaderMessage.delete();
+
+      } catch (error) {
+
+        console.warn(
+          'Could not delete previous uploader message:',
+          error.message
+        );
+
+      }
+
+    }
+
+
+    // --------------------------------------------------------
+    // SEND NEW MESSAGE
+    // --------------------------------------------------------
+
+    await message.channel.send(
+      UPLOADER_MESSAGE
+    );
+
+  } catch (error) {
+
+    console.error(
+      'Uploader automatic message error:',
+      error
+    );
+
+  }
+
+}
