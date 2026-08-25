@@ -6,6 +6,23 @@ import { logger } from "../utils/logger.js";
 import { handleDivAutoresponder } from "../services/divAutoresponder.js";
 import { handleAutoReaction } from "../services/autoReactionService.js";
 
+// ============================================================
+// AUTO REACTION SETTINGS
+// ============================================================
+
+const AUTO_REACTION_PHRASE = "1 or 2";
+
+const AUTO_REACTION_EMOJIS = [
+    "1532299228452356106",
+    "1532299246278283325"
+];
+
+const AUTO_REACTION_CHANNELS = new Set([
+    "1541254619999637624",
+    "1541679032234680350",
+    "1541678933118816267",
+    "1541679251940712498"
+]);
 
 // ============================================================
 // NAME REACTIONS
@@ -398,6 +415,386 @@ export default {
                 message
             );
 
+
+        } catch (error) {
+
+            logger.error(
+                "Error in messageCreate event:",
+                error
+            );
+
+        }
+
+    }
+
+};
+
+import { Events } from "discord.js";
+import fs from "fs";
+import path from "path";
+
+import { logger } from "../utils/logger.js";
+import { handleDivAutoresponder } from "../services/divAutoresponder.js";
+
+const nameReactionFile = path.join(
+    process.cwd(),
+    "data",
+    "nameReactions.json"
+);
+
+
+// ============================================================
+// AUTO REACTION SETTINGS
+// ============================================================
+
+const AUTO_REACTION_CHANNELS = new Set([
+    "1541254619999637624",
+    "1541679032234680350",
+    "1541678933118816267",
+    "1541679251940712498"
+]);
+
+
+// TYPE YOUR TRIGGER WORD/PHRASE HERE
+const AUTO_REACTION_PHRASE = "1 or 2";
+
+
+// PUT YOUR TWO EMOTE IDS HERE
+const AUTO_REACTION_EMOJIS = [
+    "1532299228452356106",
+    "1532299246278283325"
+];
+
+
+// ============================================================
+// LOAD SAVED NAME REACTIONS
+// ============================================================
+
+function loadNameReactions() {
+
+    try {
+
+        if (!fs.existsSync(nameReactionFile)) {
+
+            fs.mkdirSync(
+                path.dirname(nameReactionFile),
+                {
+                    recursive: true
+                }
+            );
+
+            fs.writeFileSync(
+                nameReactionFile,
+                "{}"
+            );
+
+        }
+
+        return JSON.parse(
+            fs.readFileSync(
+                nameReactionFile,
+                "utf8"
+            )
+        );
+
+    } catch (error) {
+
+        logger.error(
+            "Failed loading name reactions:",
+            error
+        );
+
+        return {};
+
+    }
+
+}
+
+
+// ============================================================
+// GET EMOJI ID
+// ============================================================
+
+function getEmojiId(emoji) {
+
+    if (!emoji) {
+        return null;
+    }
+
+    const text =
+        String(emoji).trim();
+
+    const match =
+        text.match(
+            /<a?:\w+:(\d+)>/
+        );
+
+    if (match) {
+        return match[1];
+    }
+
+    if (/^\d+$/.test(text)) {
+        return text;
+    }
+
+    return null;
+
+}
+
+
+// ============================================================
+// NAME REACTIONS
+// ============================================================
+
+async function handleNameReact(message) {
+
+    try {
+
+        const reactions =
+            loadNameReactions();
+
+        for (
+            const name in reactions
+        ) {
+
+            const reaction =
+                reactions[name];
+
+            if (
+                !reaction ||
+                !reaction.emojis ||
+                reaction.emojis.length === 0
+            ) {
+                continue;
+            }
+
+            const escapedName =
+                name.replace(
+                    /[.*+?^${}()|[\]\\]/g,
+                    "\\$&"
+                );
+
+            const nameRegex =
+                new RegExp(
+                    `(^|\\s)${escapedName}(?=\\s|$|[.,!?;:'"()\\[\\]{}])`,
+                    "i"
+                );
+
+            const nameWasUsed =
+                nameRegex.test(
+                    message.content
+                );
+
+            let memberWasMentioned =
+                false;
+
+            if (reaction.createdBy) {
+
+                memberWasMentioned =
+                    message.mentions.users.has(
+                        reaction.createdBy
+                    );
+
+            }
+
+            if (
+                !nameWasUsed &&
+                !memberWasMentioned
+            ) {
+                continue;
+            }
+
+            for (
+                const emoji
+                of reaction.emojis
+            ) {
+
+                const emojiId =
+                    getEmojiId(emoji);
+
+                if (!emojiId) {
+                    continue;
+                }
+
+                try {
+
+                    await message.react(
+                        emojiId
+                    );
+
+                } catch (error) {
+
+                    logger.warn(
+                        `Failed to react with emoji ${emojiId}:`,
+                        error
+                    );
+
+                }
+
+            }
+
+            break;
+
+        }
+
+    } catch (error) {
+
+        logger.error(
+            "Name reaction error:",
+            error
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// AUTO REACTION
+// ============================================================
+
+async function handleAutoReaction(message) {
+
+    try {
+
+        if (
+            !message ||
+            !message.guild ||
+            message.author.bot
+        ) {
+            return;
+        }
+
+
+        // ONLY WORK IN THE SPECIFIED CHANNELS
+
+        if (
+            !AUTO_REACTION_CHANNELS.has(
+                message.channel.id
+            )
+        ) {
+            return;
+        }
+
+
+        const phrase =
+            AUTO_REACTION_PHRASE
+                .trim();
+
+
+        if (!phrase) {
+            return;
+        }
+
+
+        // Match the phrase regardless of capitalization
+
+        const escapedPhrase =
+            phrase.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+            );
+
+
+        const phraseRegex =
+            new RegExp(
+                `(^|\\s)${escapedPhrase}(?=\\s|$|[.,!?;:'"()\\[\\]{}])`,
+                "i"
+            );
+
+
+        if (
+            !phraseRegex.test(
+                message.content
+            )
+        ) {
+            return;
+        }
+
+
+        // REACT WITH BOTH EMOTES
+
+        for (
+            const emojiId
+            of AUTO_REACTION_EMOJIS
+        ) {
+
+            try {
+
+                await message.react(
+                    emojiId
+                );
+
+            } catch (error) {
+
+                logger.warn(
+                    `Could not add auto reaction ${emojiId}:`,
+                    error.message
+                );
+
+            }
+
+        }
+
+    } catch (error) {
+
+        logger.error(
+            "Auto reaction error:",
+            error
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// MESSAGE CREATE
+// ============================================================
+
+export default {
+
+    name: Events.MessageCreate,
+
+    async execute(message, client) {
+
+        try {
+
+            // Ignore bots and DMs
+
+            if (
+                message.author.bot ||
+                !message.guild
+            ) {
+                return;
+            }
+
+
+            // ==================================================
+            // YOUR EXISTING DIV AUTORESPONDER
+            // ==================================================
+
+            await handleDivAutoresponder(
+                message
+            );
+
+
+            // ==================================================
+            // YOUR EXISTING NAME REACTIONS
+            // ==================================================
+
+            await handleNameReact(
+                message
+            );
+
+
+            // ==================================================
+            // NEW AUTO REACTION
+            // ==================================================
+
+            await handleAutoReaction(
+                message
+            );
 
         } catch (error) {
 
