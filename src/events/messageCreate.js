@@ -24,6 +24,58 @@ const AUTO_REACTION_CHANNELS = new Set([
     "1541679251940712498"
 ]);
 
+
+// ============================================================
+// AUTO REACTION HANDLER
+// ============================================================
+
+async function handleAutoReaction(message) {
+
+    if (
+        !message.guild ||
+        message.author.bot
+    ) {
+        return;
+    }
+
+    if (
+        !AUTO_REACTION_CHANNELS.has(
+            message.channel.id
+        )
+    ) {
+        return;
+    }
+
+    const phrase =
+        AUTO_REACTION_PHRASE
+            .trim()
+            .toLowerCase();
+
+    const content =
+        message.content.toLowerCase();
+
+    if (!content.includes(phrase)) {
+        return;
+    }
+
+    for (const emojiId of AUTO_REACTION_EMOJIS) {
+
+        try {
+
+            await message.react(emojiId);
+
+        } catch (error) {
+
+            logger.warn(
+                `Failed to add auto reaction ${emojiId}:`,
+                error
+            );
+
+        }
+
+    }
+}
+
 // ============================================================
 // NAME REACTIONS
 // ============================================================
