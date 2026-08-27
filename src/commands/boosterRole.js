@@ -1,6 +1,7 @@
 import {
   SlashCommandBuilder,
   PermissionFlagsBits,
+  EmbedBuilder,
 } from 'discord.js';
 
 import {
@@ -117,7 +118,8 @@ export default {
     ),
 
   async execute(interaction, guildConfig, client) {
-    const subcommand = interaction.options.getSubcommand();
+    const subcommand =
+      interaction.options.getSubcommand();
 
     if (!interaction.guild) {
       return interaction.reply({
@@ -132,6 +134,7 @@ export default {
     // ========================================================
 
     if (subcommand === 'set') {
+
       if (!isBooster(interaction)) {
         return interaction.reply({
           content:
@@ -148,6 +151,7 @@ export default {
         );
 
       if (existing) {
+
         const existingRole =
           interaction.guild.roles.cache.get(
             existing.roleId
@@ -231,6 +235,7 @@ export default {
         });
 
       try {
+
         await role.setPosition(
           Math.max(
             0,
@@ -238,7 +243,9 @@ export default {
           ),
           `Positioning custom booster role for ${interaction.user.tag}`
         );
+
       } catch (error) {
+
         await role.delete(
           'Could not position custom booster role'
         ).catch(() => {});
@@ -251,11 +258,14 @@ export default {
       }
 
       try {
+
         await interaction.member.roles.add(
           role,
           'Custom booster role created'
         );
+
       } catch (error) {
+
         await role.delete(
           'Could not assign custom booster role'
         ).catch(() => {});
@@ -277,6 +287,7 @@ export default {
         );
 
       if (!saved) {
+
         await interaction.member.roles.remove(
           role,
           'Could not save custom booster role'
@@ -304,6 +315,7 @@ export default {
     // ========================================================
 
     if (subcommand === 'remove') {
+
       if (!isBooster(interaction)) {
         return interaction.reply({
           content:
@@ -339,6 +351,7 @@ export default {
       );
 
       if (role) {
+
         await interaction.member.roles.remove(
           role,
           'Booster removed their custom role'
@@ -360,6 +373,7 @@ export default {
     // ========================================================
 
     if (subcommand === 'rename') {
+
       if (!isBooster(interaction)) {
         return interaction.reply({
           content:
@@ -389,6 +403,7 @@ export default {
         );
 
       if (!role) {
+
         await removeBoosterRoleRecord(
           client,
           interaction.guild.id,
@@ -433,6 +448,7 @@ export default {
     // ========================================================
 
     if (subcommand === 'list') {
+
       if (!isStaff(interaction)) {
         return interaction.reply({
           content:
@@ -440,6 +456,10 @@ export default {
           ephemeral: true,
         });
       }
+
+      // Acknowledge immediately so Discord does not time out
+      // while the database/member lookups are running.
+      await interaction.deferReply();
 
       const records =
         await cleanupMissingBoosterRoles(
@@ -452,7 +472,7 @@ export default {
         Object.entries(records);
 
       if (entries.length === 0) {
-        return interaction.reply({
+        return interaction.editReply({
           content:
             'There are currently no custom booster roles.',
         });
@@ -464,6 +484,7 @@ export default {
         const [userId, record]
         of entries.slice(0, 25)
       ) {
+
         const role =
           interaction.guild.roles.cache.get(
             record.roleId
@@ -492,16 +513,26 @@ export default {
       }
 
       if (lines.length === 0) {
-        return interaction.reply({
+        return interaction.editReply({
           content:
             'There are currently no valid custom booster roles.',
         });
       }
 
-      // PUBLIC LIST — NO BUTTON
-      return interaction.reply({
-        content:
-          `## ✦ Custom Booster Roles\n\n${lines.join('\n')}`,
+      const embed =
+        new EmbedBuilder()
+          .setTitle('✦ Custom Booster Roles')
+          .setDescription(
+            lines.join('\n')
+          )
+          .setColor('#999999')
+          .setFooter({
+            text:
+              `${lines.length} custom booster role${lines.length === 1 ? '' : 's'}`,
+          });
+
+      return interaction.editReply({
+        embeds: [embed],
       });
     }
 
@@ -510,6 +541,7 @@ export default {
     // ========================================================
 
     if (subcommand === 'remove-user') {
+
       if (!canManageBoosterSystem(interaction)) {
         return interaction.reply({
           content:
@@ -553,19 +585,22 @@ export default {
       );
 
       if (targetMember && role) {
+
         await targetMember.roles.remove(
           role,
           `Custom booster role removed by ${interaction.user.tag}`
         ).catch(() => {});
+
       }
 
       if (role) {
+
         await role.delete(
           `Custom booster role removed by ${interaction.user.tag}`
         ).catch(() => {});
+
       }
 
-      // PUBLIC SUCCESS MESSAGE
       return interaction.reply({
         content:
           `Removed ${targetUser}'s custom booster role.`,
