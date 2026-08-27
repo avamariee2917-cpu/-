@@ -7,7 +7,6 @@ import {
 } from 'discord.js';
 
 import {
-  getAllBoosterRoles,
   getBoosterRole,
   saveBoosterRole,
   updateBoosterRole,
@@ -54,6 +53,10 @@ export default {
   data: new SlashCommandBuilder()
     .setName('br')
     .setDescription('Manage custom booster roles.')
+
+    // Allow the command to be invoked without a Discord permission
+    // requirement. Our own permission checks below handle access.
+    .setDefaultMemberPermissions(null)
 
     // /br set
     .addSubcommand(subcommand =>
@@ -118,11 +121,14 @@ export default {
     ),
 
   async execute(interaction, guildConfig, client) {
-    const subcommand = interaction.options.getSubcommand();
+
+    const subcommand =
+      interaction.options.getSubcommand();
 
     if (!interaction.guild) {
       return interaction.reply({
-        content: 'This command can only be used inside a server.',
+        content:
+          'This command can only be used inside a server.',
         ephemeral: true,
       });
     }
@@ -132,6 +138,7 @@ export default {
     // ========================================================
 
     if (subcommand === 'set') {
+
       if (!isBooster(interaction)) {
         return interaction.reply({
           content:
@@ -140,15 +147,19 @@ export default {
         });
       }
 
-      const existing = await getBoosterRole(
-        client,
-        interaction.guild.id,
-        interaction.user.id
-      );
+      const existing =
+        await getBoosterRole(
+          client,
+          interaction.guild.id,
+          interaction.user.id
+        );
 
       if (existing) {
+
         const existingRole =
-          interaction.guild.roles.cache.get(existing.roleId);
+          interaction.guild.roles.cache.get(
+            existing.roleId
+          );
 
         if (existingRole) {
           return interaction.reply({
@@ -165,8 +176,11 @@ export default {
         );
       }
 
-      const name = interaction.options.getString('name');
-      const color = interaction.options.getString('color');
+      const name =
+        interaction.options.getString('name');
+
+      const color =
+        interaction.options.getString('color');
 
       if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
         return interaction.reply({
@@ -225,11 +239,17 @@ export default {
         });
 
       try {
+
         await role.setPosition(
-          Math.max(0, parentRole.position - 1),
+          Math.max(
+            0,
+            parentRole.position - 1
+          ),
           `Positioning custom booster role for ${interaction.user.tag}`
         );
+
       } catch (error) {
+
         await role.delete(
           'Could not position custom booster role'
         ).catch(() => {});
@@ -239,14 +259,18 @@ export default {
             'I created the role but could not place it underneath the custom-role parent role. The role was removed.',
           ephemeral: true,
         });
+
       }
 
       try {
+
         await interaction.member.roles.add(
           role,
           'Custom booster role created'
         );
+
       } catch (error) {
+
         await role.delete(
           'Could not assign custom booster role'
         ).catch(() => {});
@@ -256,17 +280,20 @@ export default {
             'I could not assign the custom booster role to you.',
           ephemeral: true,
         });
+
       }
 
-      const saved = await saveBoosterRole(
-        client,
-        interaction.guild.id,
-        interaction.user.id,
-        role.id,
-        role.name
-      );
+      const saved =
+        await saveBoosterRole(
+          client,
+          interaction.guild.id,
+          interaction.user.id,
+          role.id,
+          role.name
+        );
 
       if (!saved) {
+
         await interaction.member.roles.remove(
           role,
           'Could not save custom booster role'
@@ -281,12 +308,13 @@ export default {
             'Your role could not be saved to the database, so the role was removed.',
           ephemeral: true,
         });
+
       }
 
+      // PUBLIC: everyone can see that the custom role was created.
       return interaction.reply({
         content:
-          `Your custom booster role has been created: <@&${role.id}>`,
-        ephemeral: true,
+          `${interaction.user} created a custom booster role: <@&${role.id}>`,
       });
     }
 
@@ -295,6 +323,7 @@ export default {
     // ========================================================
 
     if (subcommand === 'remove') {
+
       if (!isBooster(interaction)) {
         return interaction.reply({
           content:
@@ -303,11 +332,12 @@ export default {
         });
       }
 
-      const record = await getBoosterRole(
-        client,
-        interaction.guild.id,
-        interaction.user.id
-      );
+      const record =
+        await getBoosterRole(
+          client,
+          interaction.guild.id,
+          interaction.user.id
+        );
 
       if (!record) {
         return interaction.reply({
@@ -318,7 +348,9 @@ export default {
       }
 
       const role =
-        interaction.guild.roles.cache.get(record.roleId);
+        interaction.guild.roles.cache.get(
+          record.roleId
+        );
 
       await removeBoosterRoleRecord(
         client,
@@ -327,6 +359,7 @@ export default {
       );
 
       if (role) {
+
         await interaction.member.roles.remove(
           role,
           'Booster removed their custom role'
@@ -335,6 +368,7 @@ export default {
         await role.delete(
           'Booster removed their custom role'
         ).catch(() => {});
+
       }
 
       return interaction.reply({
@@ -349,6 +383,7 @@ export default {
     // ========================================================
 
     if (subcommand === 'rename') {
+
       if (!isBooster(interaction)) {
         return interaction.reply({
           content:
@@ -357,11 +392,12 @@ export default {
         });
       }
 
-      const record = await getBoosterRole(
-        client,
-        interaction.guild.id,
-        interaction.user.id
-      );
+      const record =
+        await getBoosterRole(
+          client,
+          interaction.guild.id,
+          interaction.user.id
+        );
 
       if (!record) {
         return interaction.reply({
@@ -372,9 +408,12 @@ export default {
       }
 
       const role =
-        interaction.guild.roles.cache.get(record.roleId);
+        interaction.guild.roles.cache.get(
+          record.roleId
+        );
 
       if (!role) {
+
         await removeBoosterRoleRecord(
           client,
           interaction.guild.id,
@@ -386,6 +425,7 @@ export default {
             'Your custom role no longer exists. Use `/br set` to create a new one.',
           ephemeral: true,
         });
+
       }
 
       const newName =
@@ -393,7 +433,7 @@ export default {
 
       await role.setName(
         newName,
-        `Booster renamed their custom role`
+        'Booster renamed their custom role'
       );
 
       await updateBoosterRole(
@@ -417,6 +457,7 @@ export default {
     // ========================================================
 
     if (subcommand === 'list') {
+
       if (!isStaff(interaction)) {
         return interaction.reply({
           content:
@@ -432,7 +473,8 @@ export default {
           interaction.guild
         );
 
-      const entries = Object.entries(records);
+      const entries =
+        Object.entries(records);
 
       if (entries.length === 0) {
         return interaction.reply({
@@ -444,16 +486,24 @@ export default {
 
       const lines = [];
 
-      for (const [userId, record] of entries.slice(0, 25)) {
+      for (
+        const [userId, record]
+        of entries.slice(0, 25)
+      ) {
+
         const role =
-          interaction.guild.roles.cache.get(record.roleId);
+          interaction.guild.roles.cache.get(
+            record.roleId
+          );
 
         if (!role) {
           continue;
         }
 
         const member =
-          interaction.guild.members.cache.get(userId) ||
+          interaction.guild.members.cache.get(
+            userId
+          ) ||
           await interaction.guild.members
             .fetch(userId)
             .catch(() => null);
@@ -478,13 +528,21 @@ export default {
 
       const button =
         new ButtonBuilder()
-          .setCustomId('br_remove_menu')
-          .setLabel('Remove Custom Booster Role')
-          .setStyle(ButtonStyle.Danger);
+          .setCustomId(
+            'br_remove_menu'
+          )
+          .setLabel(
+            'Remove Custom Booster Role'
+          )
+          .setStyle(
+            ButtonStyle.Danger
+          );
 
       const row =
         new ActionRowBuilder()
-          .addComponents(button);
+          .addComponents(
+            button
+          );
 
       return interaction.reply({
         content:
@@ -499,6 +557,7 @@ export default {
     // ========================================================
 
     if (subcommand === 'remove-user') {
+
       if (!canManageBoosterSystem(interaction)) {
         return interaction.reply({
           content:
@@ -526,7 +585,9 @@ export default {
       }
 
       const role =
-        interaction.guild.roles.cache.get(record.roleId);
+        interaction.guild.roles.cache.get(
+          record.roleId
+        );
 
       const targetMember =
         await interaction.guild.members
@@ -540,16 +601,20 @@ export default {
       );
 
       if (targetMember && role) {
+
         await targetMember.roles.remove(
           role,
           `Custom booster role removed by ${interaction.user.tag}`
         ).catch(() => {});
+
       }
 
       if (role) {
+
         await role.delete(
           `Custom booster role removed by ${interaction.user.tag}`
         ).catch(() => {});
+
       }
 
       return interaction.reply({
