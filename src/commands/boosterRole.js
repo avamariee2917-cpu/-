@@ -27,7 +27,10 @@ const BOOSTER_ROLE_IDS = [
 const CUSTOM_ROLE_PARENT_ID = '1531881126854004816';
 
 function isOwner(interaction) {
-  return interaction.user.id === OWNER_ID;
+  return (
+    interaction.user.id === OWNER_ID ||
+    interaction.guild?.ownerId === interaction.user.id
+  );
 }
 
 function isStaff(interaction) {
@@ -283,7 +286,6 @@ export default {
         });
       }
 
-      // PUBLIC SUCCESS MESSAGE
       return interaction.reply({
         content:
           `${interaction.user} created a custom booster role: <@&${role.id}>`,
@@ -337,7 +339,6 @@ export default {
         ).catch(() => {});
       }
 
-      // PUBLIC SUCCESS MESSAGE
       return interaction.reply({
         content:
           `${interaction.user} removed their custom booster role.`,
@@ -408,7 +409,6 @@ export default {
         }
       );
 
-      // PUBLIC SUCCESS MESSAGE
       return interaction.reply({
         content:
           `${interaction.user} renamed their custom booster role from **${oldName}** to **${newName}**.`,
