@@ -5,6 +5,8 @@ import {
 import {
   getBoosterRole,
   removeBoosterRoleRecord,
+  recordBooster,
+  markBoosterStopped,
 } from '../utils/boosterRoles.js';
 
 const BOOSTER_ROLE_IDS = [
@@ -12,9 +14,12 @@ const BOOSTER_ROLE_IDS = [
   '1533675708193177700',
 ];
 
-function wasBooster(member) {
-  return BOOSTER_ROLE_IDS.some(roleId =>
-    member.roles.cache.has(roleId)
+function isBooster(member) {
+  return (
+    member?.premiumSince != null ||
+    BOOSTER_ROLE_IDS.some(roleId =>
+      member.roles.cache.has(roleId)
+    )
   );
 }
 
@@ -22,26 +27,64 @@ export default {
   name: 'guildMemberUpdate',
 
   async execute(oldMember, newMember, client) {
+
     try {
+
       const previouslyBooster =
-        wasBooster(oldMember);
+        isBooster(oldMember);
 
       const currentlyBooster =
-        wasBooster(newMember);
+        isBooster(newMember);
 
-      // Nothing changed
+      // ======================================================
+      // STARTED BOOSTING
+      // ======================================================
+
       if (
-        previouslyBooster ===
+        !previouslyBooster &&
+        currentlyBooster
+      ) {
+
+        await recordBooster(
+          client,
+          newMember.guild.id,
+          newMember.user
+        );
+
+        return;
+      }
+
+      // ======================================================
+      // STILL BOOSTING
+      // ======================================================
+
+      if (
+        previouslyBooster &&
         currentlyBooster
       ) {
         return;
       }
 
-      // Member stopped boosting
+      // ======================================================
+      // STOPPED BOOSTING
+      // ======================================================
+
       if (
         previouslyBooster &&
         !currentlyBooster
       ) {
+
+        // Keep permanent booster history.
+        await markBoosterStopped(
+          client,
+          newMember.guild.id,
+          newMember.user
+        );
+
+        // ----------------------------------------------------
+        // Remove custom booster role automatically.
+        // ----------------------------------------------------
+
         const record =
           await getBoosterRole(
             client,
@@ -63,6 +106,7 @@ export default {
           await newMember.guild.members.fetchMe();
 
         if (role) {
+
           if (
             botMember.permissions.has(
               PermissionFlagsBits.ManageRoles
@@ -70,6 +114,7 @@ export default {
             role.position <
               botMember.roles.highest.position
           ) {
+
             await newMember.roles.remove(
               role,
               'Member stopped boosting the server'
@@ -78,6 +123,7 @@ export default {
             await role.delete(
               'Member stopped boosting the server'
             ).catch(() => {});
+
           }
         }
 
@@ -87,11 +133,14 @@ export default {
           newMember.id
         );
       }
+
     } catch (error) {
+
       console.error(
-        'Error handling booster role cleanup:',
+        'Error handling booster history/custom role cleanup:',
         error
       );
+
     }
   },
 };
