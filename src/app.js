@@ -1797,6 +1797,26 @@ class TitanBot extends Client {
 
     try {
 
+      const guildId =
+        process.env.DISCORD_GUILD_ID ||
+        this.guilds.cache.first()?.id ||
+        null;
+
+
+      startupLog(
+        `Command registration target: ${guildId || 'GLOBAL'}`
+      );
+
+
+      if (!guildId) {
+
+        throw new Error(
+          'No Discord guild was found for command registration.'
+        );
+
+      }
+
+
       await registerSlashCommands(
         this,
         {
@@ -1804,8 +1824,7 @@ class TitanBot extends Client {
             this.config.bot.clientId,
 
           guildId:
-            process.env.DISCORD_GUILD_ID ||
-            null,
+            guildId,
         }
       );
 
