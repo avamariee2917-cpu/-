@@ -579,7 +579,7 @@ class TitanBot extends Client {
       // ------------------------------------------------------
 
       startupLog(
-        'Registering slash commands globally...'
+        'Registering slash commands...'
       );
 
 
@@ -1765,6 +1765,7 @@ class TitanBot extends Client {
           `Loaded ${handler.path}`
         );
 
+
       } catch (error) {
 
         if (
@@ -1801,6 +1802,10 @@ class TitanBot extends Client {
         {
           clientId:
             this.config.bot.clientId,
+
+          guildId:
+            process.env.DISCORD_GUILD_ID ||
+            null,
         }
       );
 
