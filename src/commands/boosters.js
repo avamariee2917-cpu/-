@@ -18,20 +18,17 @@ const BOOSTER_ROLE_IDS = [
   '1533675708193177700',
 ];
 
-function isStaff(interaction) {
+function isOwner(interaction) {
   return (
     interaction.user.id === OWNER_ID ||
-    interaction.guild?.ownerId === interaction.user.id ||
-    interaction.member?.roles?.cache?.has(STAFF_ROLE_ID)
+    interaction.guild?.ownerId === interaction.user.id
   );
 }
 
-function isCurrentlyBoosting(member) {
+function isStaff(interaction) {
   return (
-    member?.premiumSince != null ||
-    BOOSTER_ROLE_IDS.some(roleId =>
-      member?.roles?.cache?.has(roleId)
-    )
+    isOwner(interaction) ||
+    interaction.member?.roles?.cache?.has(STAFF_ROLE_ID)
   );
 }
 
@@ -48,6 +45,10 @@ export default {
     client
   ) {
 
+    // ========================================================
+    // PERMISSION
+    // ========================================================
+
     if (!isStaff(interaction)) {
       return interaction.reply({
         content:
@@ -56,20 +57,61 @@ export default {
       });
     }
 
-    // Acknowledge immediately so database/member fetches
-    // cannot cause "The application did not respond."
+    // ========================================================
+    // ACKNOWLEDGE IMMEDIATELY
+    // ========================================================
+
     await interaction.deferReply();
 
-    // --------------------------------------------------------
-    // Fetch members
-    // --------------------------------------------------------
+    // ========================================================
+    // CURRENT BOOSTERS
+    // ========================================================
+    //
+    // We intentionally do NOT call guild.members.fetch()
+    // because that requests the entire member list.
+    //
+    // Instead, use the configured booster roles.
+    // ========================================================
 
-    const members =
-      await interaction.guild.members.fetch();
+    const currentBoosterIds =
+      new Set();
 
-    // --------------------------------------------------------
-    // Load booster history
-    // --------------------------------------------------------
+    for (
+      const boosterRoleId
+      of BOOSTER_ROLE_IDS
+    ) {
+
+      const boosterRole =
+        interaction.guild.roles.cache.get(
+          boosterRoleId
+        );
+
+      if (!boosterRole) {
+        continue;
+      }
+
+      for (
+        const [memberId, member]
+        of boosterRole.members
+      ) {
+
+        currentBoosterIds.add(
+          memberId
+        );
+
+        // Make sure this current booster is recorded
+        // in permanent history.
+        await recordBooster(
+          client,
+          interaction.guild.id,
+          member.user
+        ).catch(() => {});
+      }
+    }
+
+    // ========================================================
+    // LOAD PERMANENT BOOSTER HISTORY
+    // ========================================================
 
     const history =
       await getBoosterHistory(
@@ -77,45 +119,9 @@ export default {
         interaction.guild.id
       );
 
-    // --------------------------------------------------------
-    // Detect currently boosting members and make sure their
-    // history exists.
-    // --------------------------------------------------------
-
-    for (
-      const member
-      of members.values()
-    ) {
-
-      if (
-        !isCurrentlyBoosting(member)
-      ) {
-        continue;
-      }
-
-      const historyRecord =
-        history[member.id];
-
-      if (
-        !historyRecord ||
-        !historyRecord.currentlyBoosting
-      ) {
-
-        await recordBooster(
-          client,
-          interaction.guild.id,
-          member.user
-        );
-
-      }
-    }
-
-    // Reload after recording currently active boosters.
-    const updatedHistory =
-      await getBoosterHistory(
-        client,
-        interaction.guild.id
-      );
+    // ========================================================
+    // LOAD CUSTOM BOOSTER ROLES
+    // ========================================================
 
     const customRoles =
       await getAllBoosterRoles(
@@ -123,11 +129,24 @@ export default {
         interaction.guild.id
       );
 
-    const entries =
-      Object.values(updatedHistory);
+    // ========================================================
+    // RELOAD HISTORY AFTER RECORDING CURRENT BOOSTERS
+    // ========================================================
+
+    const updatedHistory =
+      await getBoosterHistory(
+        client,
+        interaction.guild.id
+      );
+
+    const boosters =
+      Object.values(
+        updatedHistory
+      );
 
     if (
-      entries.length === 0
+      boosters.length === 0 &&
+      currentBoosterIds.size === 0
     ) {
 
       return interaction.editReply({
@@ -137,70 +156,152 @@ export default {
 
     }
 
-    // --------------------------------------------------------
-    // Sort:
-    // current boosters first, then newest booster activity.
-    // --------------------------------------------------------
+    // ========================================================
+    // MAKE SURE CURRENT ROLE MEMBERS ARE INCLUDED
+    // ========================================================
 
-    entries.sort(
+    for (
+      const memberId
+      of currentBoosterIds
+    ) {
+
+      if (
+        updatedHistory[memberId]
+      ) {
+        continue;
+      }
+
+      const member =
+        interaction.guild.members.cache.get(
+          memberId
+        );
+
+      if (!member) {
+        continue;
+      }
+
+      updatedHistory[memberId] = {
+        userId:
+          member.id,
+
+        username:
+          member.user.username,
+
+        displayName:
+          member.user.globalName ||
+          member.user.username,
+
+        firstBoostAt:
+          Date.now(),
+
+        lastBoostAt:
+          Date.now(),
+
+        totalBoostSessions:
+          1,
+
+        currentlyBoosting:
+          true,
+      };
+    }
+
+    const finalBoosters =
+      Object.values(
+        updatedHistory
+      );
+
+    // ========================================================
+    // SORT CURRENT FIRST
+    // ========================================================
+
+    finalBoosters.sort(
       (a, b) => {
 
+        const aCurrent =
+          currentBoosterIds.has(
+            a.userId
+          );
+
+        const bCurrent =
+          currentBoosterIds.has(
+            b.userId
+          );
+
         if (
-          a.currentlyBoosting &&
-          !b.currentlyBoosting
+          aCurrent &&
+          !bCurrent
         ) {
           return -1;
         }
 
         if (
-          !a.currentlyBoosting &&
-          b.currentlyBoosting
+          !aCurrent &&
+          bCurrent
         ) {
           return 1;
         }
 
         return (
-          Number(b.lastBoostAt || 0) -
-          Number(a.lastBoostAt || 0)
+          Number(
+            b.lastBoostAt || 0
+          ) -
+          Number(
+            a.lastBoostAt || 0
+          )
         );
       }
     );
+
+    // ========================================================
+    // BUILD LIST
+    // ========================================================
 
     const lines = [];
 
     for (
       const booster
-      of entries
+      of finalBoosters
     ) {
 
       const member =
-        members.get(
+        interaction.guild.members.cache.get(
           booster.userId
         );
 
       const currentlyBoosting =
-        member
-          ? isCurrentlyBoosting(member)
-          : Boolean(
-              booster.currentlyBoosting
-            );
-
-      const record =
-        customRoles[
+        currentBoosterIds.has(
           booster.userId
-        ];
+        );
+
+      const status =
+        currentlyBoosting
+          ? 'Currently Boosting'
+          : 'Past Booster';
+
+      const user =
+        member
+          ? `${member}`
+          : `<@${booster.userId}>`;
+
+      // ------------------------------------------------------
+      // CUSTOM ROLE
+      // ------------------------------------------------------
 
       let roleText =
         'No custom role';
 
       if (
         currentlyBoosting &&
-        record?.roleId
+        customRoles[
+          booster.userId
+        ]?.roleId
       ) {
 
         const role =
           interaction.guild.roles.cache.get(
-            record.roleId
+            customRoles[
+              booster.userId
+            ].roleId
           );
 
         if (role) {
@@ -209,26 +310,18 @@ export default {
         }
       }
 
-      const status =
-        currentlyBoosting
-          ? 'Currently Boosting'
-          : 'Past Booster';
-
-      const userMention =
-        member
-          ? `${member}`
-          : `<@${booster.userId}>`;
-
       lines.push(
-        `• ${userMention} — **${status}** — ${roleText}`
+        `• ${user} — **${status}** — ${roleText}`
       );
     }
 
-    // Discord embed descriptions have a character limit,
-    // so split into pages when necessary.
-    const chunks = [];
+    // ========================================================
+    // PAGINATION
+    // ========================================================
 
-    let currentChunk = [];
+    const pages = [];
+
+    let currentPage = [];
 
     let currentLength = 0;
 
@@ -244,16 +337,16 @@ export default {
         3800
       ) {
 
-        chunks.push(
-          currentChunk.join('\n')
+        pages.push(
+          currentPage.join('\n')
         );
 
-        currentChunk = [];
+        currentPage = [];
 
         currentLength = 0;
       }
 
-      currentChunk.push(
+      currentPage.push(
         line
       );
 
@@ -263,68 +356,67 @@ export default {
     }
 
     if (
-      currentChunk.length > 0
+      currentPage.length > 0
     ) {
 
-      chunks.push(
-        currentChunk.join('\n')
+      pages.push(
+        currentPage.join('\n')
       );
     }
 
-    const totalCurrentBoosters =
-      entries.filter(
-        booster => {
+    // ========================================================
+    // COUNTS
+    // ========================================================
 
-          const member =
-            members.get(
-              booster.userId
-            );
-
-          return member
-            ? isCurrentlyBoosting(member)
-            : Boolean(
-                booster.currentlyBoosting
-              );
-        }
+    const currentCount =
+      finalBoosters.filter(
+        booster =>
+          currentBoosterIds.has(
+            booster.userId
+          )
       ).length;
 
-    const totalPastBoosters =
-      entries.length -
-      totalCurrentBoosters;
+    const pastCount =
+      finalBoosters.length -
+      currentCount;
 
-    const firstEmbed =
+    // ========================================================
+    // FIRST EMBED
+    // ========================================================
+
+    const embed =
       new EmbedBuilder()
         .setTitle(
           '✦ Server Boosters'
         )
         .setDescription(
-          chunks[0]
+          pages[0]
         )
         .setColor(
           '#999999'
         )
         .setFooter({
           text:
-            `${totalCurrentBoosters} current • ${totalPastBoosters} past • ${entries.length} total`,
+            `${currentCount} current • ${pastCount} past • ${finalBoosters.length} total`,
         });
 
     await interaction.editReply({
       embeds: [
-        firstEmbed,
+        embed,
       ],
     });
 
-    // --------------------------------------------------------
-    // Additional pages
-    // --------------------------------------------------------
+    // ========================================================
+    // ADDITIONAL PAGES
+    // ========================================================
 
     if (
-      chunks.length > 1
+      pages.length > 1
     ) {
 
       for (
         let index = 1;
-        index < chunks.length;
+        index < pages.length;
         index++
       ) {
 
@@ -334,7 +426,7 @@ export default {
               `✦ Server Boosters — Page ${index + 1}`
             )
             .setDescription(
-              chunks[index]
+              pages[index]
             )
             .setColor(
               '#999999'
