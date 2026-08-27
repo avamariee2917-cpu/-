@@ -1,13 +1,9 @@
 import {
   SlashCommandBuilder,
   PermissionFlagsBits,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
 } from 'discord.js';
 
 import {
-  getAllBoosterRoles,
   getBoosterRole,
   saveBoosterRole,
   updateBoosterRole,
@@ -125,7 +121,8 @@ export default {
 
     if (!interaction.guild) {
       return interaction.reply({
-        content: 'This command can only be used inside a server.',
+        content:
+          'This command can only be used inside a server.',
         ephemeral: true,
       });
     }
@@ -143,15 +140,18 @@ export default {
         });
       }
 
-      const existing = await getBoosterRole(
-        client,
-        interaction.guild.id,
-        interaction.user.id
-      );
+      const existing =
+        await getBoosterRole(
+          client,
+          interaction.guild.id,
+          interaction.user.id
+        );
 
       if (existing) {
         const existingRole =
-          interaction.guild.roles.cache.get(existing.roleId);
+          interaction.guild.roles.cache.get(
+            existing.roleId
+          );
 
         if (existingRole) {
           return interaction.reply({
@@ -168,8 +168,11 @@ export default {
         );
       }
 
-      const name = interaction.options.getString('name');
-      const color = interaction.options.getString('color');
+      const name =
+        interaction.options.getString('name');
+
+      const color =
+        interaction.options.getString('color');
 
       if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
         return interaction.reply({
@@ -229,7 +232,10 @@ export default {
 
       try {
         await role.setPosition(
-          Math.max(0, parentRole.position - 1),
+          Math.max(
+            0,
+            parentRole.position - 1
+          ),
           `Positioning custom booster role for ${interaction.user.tag}`
         );
       } catch (error) {
@@ -261,13 +267,14 @@ export default {
         });
       }
 
-      const saved = await saveBoosterRole(
-        client,
-        interaction.guild.id,
-        interaction.user.id,
-        role.id,
-        role.name
-      );
+      const saved =
+        await saveBoosterRole(
+          client,
+          interaction.guild.id,
+          interaction.user.id,
+          role.id,
+          role.name
+        );
 
       if (!saved) {
         await interaction.member.roles.remove(
@@ -305,11 +312,12 @@ export default {
         });
       }
 
-      const record = await getBoosterRole(
-        client,
-        interaction.guild.id,
-        interaction.user.id
-      );
+      const record =
+        await getBoosterRole(
+          client,
+          interaction.guild.id,
+          interaction.user.id
+        );
 
       if (!record) {
         return interaction.reply({
@@ -320,7 +328,9 @@ export default {
       }
 
       const role =
-        interaction.guild.roles.cache.get(record.roleId);
+        interaction.guild.roles.cache.get(
+          record.roleId
+        );
 
       await removeBoosterRoleRecord(
         client,
@@ -358,11 +368,12 @@ export default {
         });
       }
 
-      const record = await getBoosterRole(
-        client,
-        interaction.guild.id,
-        interaction.user.id
-      );
+      const record =
+        await getBoosterRole(
+          client,
+          interaction.guild.id,
+          interaction.user.id
+        );
 
       if (!record) {
         return interaction.reply({
@@ -373,7 +384,9 @@ export default {
       }
 
       const role =
-        interaction.guild.roles.cache.get(record.roleId);
+        interaction.guild.roles.cache.get(
+          record.roleId
+        );
 
       if (!role) {
         await removeBoosterRoleRecord(
@@ -435,28 +448,35 @@ export default {
           interaction.guild
         );
 
-      const entries = Object.entries(records);
+      const entries =
+        Object.entries(records);
 
       if (entries.length === 0) {
         return interaction.reply({
           content:
             'There are currently no custom booster roles.',
-          ephemeral: true,
         });
       }
 
       const lines = [];
 
-      for (const [userId, record] of entries.slice(0, 25)) {
+      for (
+        const [userId, record]
+        of entries.slice(0, 25)
+      ) {
         const role =
-          interaction.guild.roles.cache.get(record.roleId);
+          interaction.guild.roles.cache.get(
+            record.roleId
+          );
 
         if (!role) {
           continue;
         }
 
         const member =
-          interaction.guild.members.cache.get(userId) ||
+          interaction.guild.members.cache.get(
+            userId
+          ) ||
           await interaction.guild.members
             .fetch(userId)
             .catch(() => null);
@@ -475,25 +495,13 @@ export default {
         return interaction.reply({
           content:
             'There are currently no valid custom booster roles.',
-          ephemeral: true,
         });
       }
 
-      const button =
-        new ButtonBuilder()
-          .setCustomId('br_remove_menu')
-          .setLabel('Remove Custom Booster Role')
-          .setStyle(ButtonStyle.Danger);
-
-      const row =
-        new ActionRowBuilder()
-          .addComponents(button);
-
+      // PUBLIC LIST — NO BUTTON
       return interaction.reply({
         content:
           `## ✦ Custom Booster Roles\n\n${lines.join('\n')}`,
-        components: [row],
-        ephemeral: true,
       });
     }
 
@@ -529,7 +537,9 @@ export default {
       }
 
       const role =
-        interaction.guild.roles.cache.get(record.roleId);
+        interaction.guild.roles.cache.get(
+          record.roleId
+        );
 
       const targetMember =
         await interaction.guild.members
@@ -555,10 +565,10 @@ export default {
         ).catch(() => {});
       }
 
+      // PUBLIC SUCCESS MESSAGE
       return interaction.reply({
         content:
           `Removed ${targetUser}'s custom booster role.`,
-        ephemeral: true,
       });
     }
   },
