@@ -1816,17 +1816,62 @@ class TitanBot extends Client {
 
       }
 
+      
+      async registerCommands() {
 
-      await registerSlashCommands(
-        this,
-        {
-          clientId:
-            this.config.bot.clientId,
+  try {
 
-          guildId:
-            guildId,
-        }
+    const guildId =
+      process.env.DISCORD_GUILD_ID ||
+      this.guilds.cache.first()?.id ||
+      null;
+
+    startupLog(
+      `Command registration target: ${guildId || 'GLOBAL'}`
+    );
+
+    if (!guildId) {
+
+      throw new Error(
+        'No Discord guild was found for command registration.'
       );
+
+    }
+
+    // Clear old global commands
+    await this.rest.put(
+      `/applications/${this.config.bot.clientId}/commands`,
+      {
+        body: [],
+      }
+    );
+
+    startupLog(
+      'Old global slash commands cleared.'
+    );
+
+    // Register current commands to this server
+    await registerSlashCommands(
+      this,
+      {
+        clientId:
+          this.config.bot.clientId,
+
+        guildId:
+          guildId,
+      }
+    );
+
+  } catch (error) {
+
+    logger.error(
+      'Error registering commands:',
+      error
+    );
+
+  }
+
+}
 
     } catch (error) {
 
