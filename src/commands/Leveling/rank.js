@@ -1,6 +1,7 @@
 import {
   SlashCommandBuilder,
   EmbedBuilder,
+  MessageFlags,
 } from 'discord.js';
 
 const XP_PER_LEVEL = 100;
@@ -30,67 +31,70 @@ export default {
     ),
 
   async execute(interaction) {
-    await interaction.deferReply();
-
     try {
+      // Defer FIRST, but keep it inside the try/catch
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply();
+      }
+
       const target =
         interaction.options.getUser('user') ||
         interaction.user;
 
+      // Safely get leveling data
       const levelingData =
         interaction.client.levelingData;
 
+      const guildId =
+        interaction.guildId;
+
       const guildData =
-        levelingData?.[interaction.guild.id] || {};
+        levelingData?.[guildId] || {};
 
       const userData =
-        guildData[target.id] || {
+        guildData?.[target.id] || {
           xp: 0,
           level: 1,
         };
 
-      const level =
-        Math.max(
-          1,
-          Math.min(
-            MAX_LEVEL,
-            Number(userData.level) || 1
-          )
-        );
+      // Make sure XP and level are valid numbers
+      const level = Math.max(
+        1,
+        Math.min(
+          MAX_LEVEL,
+          Number(userData.level) || 1
+        )
+      );
 
-      const totalXP =
-        Math.max(
-          0,
-          Number(userData.xp) || 0
-        );
+      const totalXP = Math.max(
+        0,
+        Number(userData.xp) || 0
+      );
 
-      // XP required to reach the current level
+      // XP needed for the current level
       const currentLevelXP =
         (level - 1) * XP_PER_LEVEL;
 
       // XP earned inside the current level
-      const xpIntoLevel =
-        Math.max(
-          0,
-          totalXP - currentLevelXP
-        );
+      const xpIntoLevel = Math.max(
+        0,
+        totalXP - currentLevelXP
+      );
 
       const xpNeededForNextLevel =
         XP_PER_LEVEL;
 
-      const xpRemaining =
-        Math.max(
-          0,
-          xpNeededForNextLevel - xpIntoLevel
-        );
+      const xpRemaining = Math.max(
+        0,
+        xpNeededForNextLevel - xpIntoLevel
+      );
 
-      const progress =
-        Math.min(
-          100,
-          Math.floor(
-            (xpIntoLevel / xpNeededForNextLevel) * 100
-          )
-        );
+      const progress = Math.min(
+        100,
+        Math.floor(
+          (xpIntoLevel / xpNeededForNextLevel) * 100
+        )
+      );
 
       const progressBar =
         level >= MAX_LEVEL
@@ -105,21 +109,19 @@ export default {
           ? 'MAX'
           : level + 1;
 
+      const avatarURL =
+        target.displayAvatarURL({
+          extension: 'png',
+          size: 256,
+        });
+
       const embed =
         new EmbedBuilder()
           .setAuthor({
             name: `${target.username}'s Rank`,
-            iconURL: target.displayAvatarURL({
-              extension: 'png',
-              size: 256,
-            }),
+            iconURL: avatarURL,
           })
-          .setThumbnail(
-            target.displayAvatarURL({
-              extension: 'png',
-              size: 256,
-            })
-          )
+          .setThumbnail(avatarURL)
           .setDescription(
             `**Level ${level}**\n\n` +
             `**XP**\n` +
@@ -142,14 +144,28 @@ export default {
       });
 
     } catch (error) {
-      console.error(
-        'Rank command error:',
-        error
-      );
+      console.error('Rank command error:', error);
 
-      await interaction.editReply(
-        'I could not retrieve that member\'s rank.'
-      );
+      // If we already acknowledged the interaction,
+      // edit the existing reply instead of replying again.
+      try {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply({
+            content: 'I could not retrieve that member\'s rank.',
+            embeds: [],
+          });
+        } else {
+          await interaction.reply({
+            content: 'I could not retrieve that member\'s rank.',
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+      } catch (replyError) {
+        console.error(
+          'Rank error response failed:',
+          replyError
+        );
+      }
     }
   },
 };
