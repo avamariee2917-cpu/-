@@ -66,7 +66,6 @@ import {
   EXPECTED_SCHEMA_LABEL,
 } from './config/database/schemaVersion.js';
 
-
 // ============================================================
 // FILE PATHS
 // ============================================================
@@ -82,7 +81,6 @@ const DATA_DIRECTORY =
 
 const LEVELING_FILE =
   path.join(DATA_DIRECTORY, 'leveling.json');
-
 
 // ============================================================
 // LEVELING CHANNELS
@@ -104,7 +102,6 @@ const LEVELING_CHANNELS = new Set([
   '1531444192214257744',
   '1531444263953498315',
 ]);
-
 
 // ============================================================
 // LEVELING ROLES
@@ -129,7 +126,6 @@ const ROLE_LEVELS =
     .map(Number)
     .sort((a, b) => a - b);
 
-
 // ============================================================
 // LEVELING SETTINGS
 // ============================================================
@@ -149,7 +145,6 @@ const MAX_LEVEL =
 
 const MAX_XP =
   (MAX_LEVEL - 1) * XP_PER_LEVEL;
-
 
 // ============================================================
 // LEVELING FILE
@@ -190,7 +185,6 @@ function ensureLevelingFile() {
   }
 
 }
-
 
 // ============================================================
 // LOAD LEVELING DATA
@@ -244,7 +238,6 @@ function loadLevelingData() {
 
 }
 
-
 // ============================================================
 // SAVE LEVELING DATA
 // ============================================================
@@ -276,7 +269,6 @@ function saveLevelingDataToFile(data) {
 
 }
 
-
 // ============================================================
 // LEVEL CALCULATION
 // ============================================================
@@ -298,7 +290,6 @@ function calculateLevel(xp) {
 
 }
 
-
 // ============================================================
 // XP CALCULATION
 // ============================================================
@@ -315,7 +306,6 @@ function getRandomXP() {
   ) + MIN_XP_PER_MESSAGE;
 
 }
-
 
 // ============================================================
 // TITAN BOT
@@ -349,7 +339,6 @@ class TitanBot extends Client {
 
     });
 
-
     // ========================================================
     // BASIC BOT DATA
     // ========================================================
@@ -378,14 +367,12 @@ class TitanBot extends Client {
     this.db =
       null;
 
-
     this.rest =
       new REST({
         version: '10',
       }).setToken(
         config.bot.token
       );
-
 
     // ========================================================
     // LEVELING DATA
@@ -394,10 +381,8 @@ class TitanBot extends Client {
     this.levelingData =
       loadLevelingData();
 
-
     this.levelingCooldowns =
       new Map();
-
 
     this.saveLevelingData =
       () => {
@@ -409,7 +394,6 @@ class TitanBot extends Client {
       };
 
   }
-
 
   // ==========================================================
   // START BOT
@@ -423,7 +407,6 @@ class TitanBot extends Client {
         'Starting TitanBot...'
       );
 
-
       await new Promise(
         resolve =>
           setTimeout(
@@ -431,7 +414,6 @@ class TitanBot extends Client {
             1000
           )
       );
-
 
       // ------------------------------------------------------
       // DATABASE
@@ -441,18 +423,14 @@ class TitanBot extends Client {
         'Initializing database...'
       );
 
-
       const dbInstance =
         await initializeDatabase();
-
 
       this.db =
         dbInstance.db;
 
-
       const dbStatus =
         this.db.getStatus();
-
 
       if (dbStatus.isDegraded) {
 
@@ -476,7 +454,6 @@ class TitanBot extends Client {
 
       }
 
-
       // ------------------------------------------------------
       // WEB SERVER
       // ------------------------------------------------------
@@ -487,7 +464,6 @@ class TitanBot extends Client {
 
       this.startWebServer();
 
-
       // ------------------------------------------------------
       // COMMANDS
       // ------------------------------------------------------
@@ -496,16 +472,13 @@ class TitanBot extends Client {
         'Loading commands...'
       );
 
-
       await loadCommands(
         this
       );
 
-
       startupLog(
         `Commands loaded: ${this.commands.size}`
       );
-
 
       // ------------------------------------------------------
       // HANDLERS
@@ -515,14 +488,11 @@ class TitanBot extends Client {
         'Loading handlers...'
       );
 
-
       await this.loadHandlers();
-
 
       startupLog(
         'Handlers loaded'
       );
-
 
       // ------------------------------------------------------
       // MUSIC
@@ -532,28 +502,23 @@ class TitanBot extends Client {
         this
       );
 
-
       // ------------------------------------------------------
       // LEVELING
       // ------------------------------------------------------
 
       this.setupLevelingSystem();
 
-
       startupLog(
         'Leveling system loaded'
       );
-
 
       startupLog(
         `Leveling channels: ${LEVELING_CHANNELS.size}`
       );
 
-
       startupLog(
         `Level rewards: ${ROLE_LEVELS.length}`
       );
-
 
       // ------------------------------------------------------
       // LOGIN
@@ -563,16 +528,13 @@ class TitanBot extends Client {
         'Logging into Discord...'
       );
 
-
       await this.login(
         this.config.bot.token
       );
 
-
       startupLog(
         'Discord login successful'
       );
-
 
       // ------------------------------------------------------
       // REGISTER COMMANDS
@@ -582,25 +544,20 @@ class TitanBot extends Client {
         'Registering slash commands...'
       );
 
-
       await this.registerCommands();
-
 
       startupLog(
         'Slash commands registration complete'
       );
-
 
       const databaseMode =
         dbStatus.isDegraded
           ? 'Optional in-memory mode'
           : 'Connected';
 
-
       startupLog(
         `ONLINE | ${this.commands.size} commands | Database: ${databaseMode}`
       );
-
 
       // ------------------------------------------------------
       // CRON
@@ -621,7 +578,6 @@ class TitanBot extends Client {
 
   }
 
-
   // ==========================================================
   // LEVELING SYSTEM
   // ==========================================================
@@ -634,7 +590,6 @@ class TitanBot extends Client {
 
     this.levelingSystemInitialized =
       true;
-
 
     this.on(
       'messageCreate',
@@ -650,7 +605,6 @@ class TitanBot extends Client {
             return;
           }
 
-
           // --------------------------------------------------
           // IGNORE DMS
           // --------------------------------------------------
@@ -658,7 +612,6 @@ class TitanBot extends Client {
           if (!message.guild) {
             return;
           }
-
 
           // --------------------------------------------------
           // ONLY LEVELING CHANNELS
@@ -672,7 +625,6 @@ class TitanBot extends Client {
             return;
           }
 
-
           // --------------------------------------------------
           // MEMBER
           // --------------------------------------------------
@@ -680,11 +632,9 @@ class TitanBot extends Client {
           const member =
             message.member;
 
-
           if (!member) {
             return;
           }
-
 
           // --------------------------------------------------
           // COOLDOWN
@@ -693,16 +643,13 @@ class TitanBot extends Client {
           const cooldownKey =
             `${message.guild.id}:${message.author.id}`;
 
-
           const now =
             Date.now();
-
 
           const lastXPTime =
             this.levelingCooldowns.get(
               cooldownKey
             );
-
 
           if (
             lastXPTime &&
@@ -712,12 +659,10 @@ class TitanBot extends Client {
             return;
           }
 
-
           this.levelingCooldowns.set(
             cooldownKey,
             now
           );
-
 
           // --------------------------------------------------
           // GUILD DATA
@@ -725,7 +670,6 @@ class TitanBot extends Client {
 
           const guildId =
             message.guild.id;
-
 
           if (
             !this.levelingData[guildId]
@@ -735,7 +679,6 @@ class TitanBot extends Client {
               {};
 
           }
-
 
           // --------------------------------------------------
           // USER DATA
@@ -759,12 +702,10 @@ class TitanBot extends Client {
 
           }
 
-
           const userData =
             this.levelingData[guildId][
               message.author.id
             ];
-
 
           // --------------------------------------------------
           // OLD LEVEL
@@ -776,7 +717,6 @@ class TitanBot extends Client {
               Number(userData.level) || 1
             );
 
-
           // --------------------------------------------------
           // GAIN XP
           // --------------------------------------------------
@@ -784,13 +724,11 @@ class TitanBot extends Client {
           const gainedXP =
             getRandomXP();
 
-
           const currentXP =
             Math.max(
               0,
               Number(userData.xp) || 0
             );
-
 
           const newXP =
             Math.min(
@@ -798,10 +736,8 @@ class TitanBot extends Client {
               currentXP + gainedXP
             );
 
-
           userData.xp =
             newXP;
-
 
           // --------------------------------------------------
           // CALCULATE LEVEL
@@ -812,17 +748,14 @@ class TitanBot extends Client {
               newXP
             );
 
-
           userData.level =
             newLevel;
-
 
           // --------------------------------------------------
           // SAVE DATA
           // --------------------------------------------------
 
           this.saveLevelingData();
-
 
           // --------------------------------------------------
           // LEVEL DID NOT CHANGE
@@ -834,7 +767,6 @@ class TitanBot extends Client {
             return;
           }
 
-
           // --------------------------------------------------
           // UPDATE ROLES
           // --------------------------------------------------
@@ -843,7 +775,6 @@ class TitanBot extends Client {
             member,
             newLevel
           );
-
 
           // --------------------------------------------------
           // LEVEL ANNOUNCEMENTS (EVERY LEVEL)
@@ -878,7 +809,6 @@ class TitanBot extends Client {
 
   }
 
-
   // ==========================================================
   // UPDATE LEVEL ROLES
   // ==========================================================
@@ -908,7 +838,6 @@ class TitanBot extends Client {
         guild.members.me ||
         await guild.members.fetchMe();
 
-
       if (!botMember) {
 
         logger.warn(
@@ -918,7 +847,6 @@ class TitanBot extends Client {
         return;
 
       }
-
 
       // Verify bot has Manage Roles permission
       if (!botMember.permissions.has('ManageRoles')) {
@@ -931,10 +859,8 @@ class TitanBot extends Client {
 
       }
 
-
       // Ensure level is a valid number
       const safeLevel = Math.max(1, Math.min(MAX_LEVEL, Number(level) || 1));
-
 
       // ======================================================
       // DETERMINE QUALIFYING ROLES (CUMULATIVE)
@@ -953,7 +879,6 @@ class TitanBot extends Client {
             )
         );
 
-
       // ======================================================
       // PROCESS ALL LEVELING ROLES
       // ======================================================
@@ -966,27 +891,22 @@ class TitanBot extends Client {
         const roleId =
           LEVEL_ROLES[roleLevel];
 
-
         // Check if role should be held
         const shouldHaveRole =
           qualifyingRoleIds.has(roleId);
 
-
         // Check if member currently has role
         const hasRole =
           member.roles.cache.has(roleId);
-
 
         // No action needed
         if (shouldHaveRole === hasRole) {
           continue;
         }
 
-
         // Fetch role from guild
         const role =
           guild.roles.cache.get(roleId);
-
 
         if (!role) {
 
@@ -997,7 +917,6 @@ class TitanBot extends Client {
           continue;
 
         }
-
 
         // Check role hierarchy
         if (
@@ -1012,7 +931,6 @@ class TitanBot extends Client {
           continue;
 
         }
-
 
         // REMOVE ROLE
         if (hasRole && !shouldHaveRole) {
@@ -1038,7 +956,6 @@ class TitanBot extends Client {
           }
 
         }
-
 
         // ADD ROLE
         if (!hasRole && shouldHaveRole) {
@@ -1078,7 +995,6 @@ class TitanBot extends Client {
 
   }
 
-
   // ==========================================================
   // WEB SERVER
   // ==========================================================
@@ -1088,7 +1004,6 @@ class TitanBot extends Client {
     const app =
       express();
 
-
     const configuredPort =
       Number(
         this.config.api?.port ||
@@ -1096,23 +1011,19 @@ class TitanBot extends Client {
         3000
       );
 
-
     const maxPortRetryAttempts =
       Number(
         process.env.PORT_RETRY_ATTEMPTS ||
         5
       );
 
-
     const host =
       process.env.WEB_HOST ||
       '0.0.0.0';
 
-
     const corsOrigin =
       this.config.api?.cors?.origin ||
       '*';
-
 
     // --------------------------------------------------------
     // CORS
@@ -1126,10 +1037,8 @@ class TitanBot extends Client {
             ? corsOrigin
             : [corsOrigin];
 
-
         const origin =
           req.headers.origin;
-
 
         if (
           allowedOrigins.includes('*') ||
@@ -1143,18 +1052,15 @@ class TitanBot extends Client {
 
         }
 
-
         res.header(
           'Access-Control-Allow-Methods',
           'GET, POST, OPTIONS'
         );
 
-
         res.header(
           'Access-Control-Allow-Headers',
           'Content-Type, Authorization'
         );
-
 
         if (
           req.method === 'OPTIONS'
@@ -1166,12 +1072,10 @@ class TitanBot extends Client {
 
         }
 
-
         next();
 
       }
     );
-
 
     // --------------------------------------------------------
     // RATE LIMIT
@@ -1180,16 +1084,13 @@ class TitanBot extends Client {
     const requestCounts =
       new Map();
 
-
     const windowMs =
       this.config.api?.rateLimit?.windowMs ||
       60000;
 
-
     const maxRequests =
       this.config.api?.rateLimit?.max ||
       100;
-
 
     app.use(
       (req, res, next) => {
@@ -1197,14 +1098,11 @@ class TitanBot extends Client {
         const ip =
           req.ip;
 
-
         const now =
           Date.now();
 
-
         const windowStart =
           now - windowMs;
-
 
         if (
           !requestCounts.has(ip)
@@ -1217,7 +1115,6 @@ class TitanBot extends Client {
 
         }
 
-
         const times =
           requestCounts
             .get(ip)
@@ -1225,7 +1122,6 @@ class TitanBot extends Client {
               time =>
                 time > windowStart
             );
-
 
         if (
           times.length >=
@@ -1241,23 +1137,19 @@ class TitanBot extends Client {
 
         }
 
-
         times.push(
           now
         );
-
 
         requestCounts.set(
           ip,
           times
         );
 
-
         next();
 
       }
     );
-
 
     // --------------------------------------------------------
     // HEALTH
@@ -1273,7 +1165,6 @@ class TitanBot extends Client {
             isDegraded:
               'unknown',
           };
-
 
         res
           .status(200)
@@ -1307,7 +1198,6 @@ class TitanBot extends Client {
       }
     );
 
-
     // --------------------------------------------------------
     // READY
     // --------------------------------------------------------
@@ -1323,11 +1213,9 @@ class TitanBot extends Client {
             connectionType: 'none',
           };
 
-
         const isReady =
           this.isReady() &&
           !dbStatus.isDegraded;
-
 
         const metrics = {
 
@@ -1361,7 +1249,6 @@ class TitanBot extends Client {
 
         };
 
-
         if (isReady) {
 
           return res
@@ -1379,7 +1266,6 @@ class TitanBot extends Client {
             });
 
         }
-
 
         res
           .status(503)
@@ -1399,7 +1285,6 @@ class TitanBot extends Client {
 
       }
     );
-
 
     // --------------------------------------------------------
     // ROOT
@@ -1427,7 +1312,6 @@ class TitanBot extends Client {
       }
     );
 
-
     // --------------------------------------------------------
     // START SERVER
     // --------------------------------------------------------
@@ -1441,7 +1325,6 @@ class TitanBot extends Client {
         let hasStartedListening =
           false;
 
-
         const server =
           app.listen(
             port,
@@ -1451,20 +1334,16 @@ class TitanBot extends Client {
               hasStartedListening =
                 true;
 
-
               this.webServer =
                 server;
-
 
               startupLog(
                 `Web Server running on ${host}:${port}`
               );
 
-
               startupLog(
                 `Health endpoint: http://${host}:${port}/health`
               );
-
 
               startupLog(
                 `Ready endpoint: http://${host}:${port}/ready`
@@ -1472,7 +1351,6 @@ class TitanBot extends Client {
 
             }
           );
-
 
         server.on(
           'error',
@@ -1482,11 +1360,9 @@ class TitanBot extends Client {
               error?.code ||
               'UNKNOWN_ERROR';
 
-
             const errorMessage =
               error?.message ||
               'Unknown server error';
-
 
             if (
               !hasStartedListening &&
@@ -1499,11 +1375,9 @@ class TitanBot extends Client {
               const nextPort =
                 port + 1;
 
-
               startupLog(
                 `Port ${port} is already in use. Trying port ${nextPort}...`
               );
-
 
               setTimeout(
                 () =>
@@ -1514,16 +1388,13 @@ class TitanBot extends Client {
                 250
               );
 
-
               return;
 
             }
 
-
             logger.error(
               `Web server error on port ${port} (${errorCode}): ${errorMessage}`
             );
-
 
             if (
               !hasStartedListening
@@ -1538,14 +1409,12 @@ class TitanBot extends Client {
 
       };
 
-
     startServer(
       configuredPort,
       0
     );
 
   }
-
 
   // ==========================================================
   // CRON JOBS
@@ -1562,7 +1431,6 @@ class TitanBot extends Client {
   )
 );
 
-
     cron.schedule(
       '* * * * *',
       runSafeTask(
@@ -1571,7 +1439,6 @@ class TitanBot extends Client {
           checkGiveaways(this)
       )
     );
-
 
     cron.schedule(
       '*/15 * * * *',
@@ -1583,7 +1450,6 @@ class TitanBot extends Client {
     );
 
   }
-
 
   // ==========================================================
   // SERVER COUNTERS
@@ -1601,7 +1467,6 @@ class TitanBot extends Client {
 
     }
 
-
     for (
       const [guildId, guild]
       of this.guilds.cache
@@ -1615,13 +1480,11 @@ class TitanBot extends Client {
             guildId
           );
 
-
         const validCounters =
           [];
 
         const orphanedCounters =
           [];
-
 
         for (
           const counter
@@ -1640,13 +1503,11 @@ class TitanBot extends Client {
                 counter.channelId
               );
 
-
             if (channel) {
 
               validCounters.push(
                 counter
               );
-
 
               await updateCounter(
                 this,
@@ -1665,7 +1526,6 @@ class TitanBot extends Client {
           }
 
         }
-
 
         if (
           orphanedCounters.length > 0
@@ -1692,7 +1552,6 @@ class TitanBot extends Client {
 
   }
 
-
   // ==========================================================
   // LOAD HANDLERS
   // ==========================================================
@@ -1715,7 +1574,6 @@ class TitanBot extends Client {
 
     ];
 
-
     for (
       const handler
       of handlers
@@ -1727,12 +1585,10 @@ class TitanBot extends Client {
           `Loading handler: ${handler.path}`
         );
 
-
         const module =
           await import(
             `./handlers/loaders/${handler.path}.js`
           );
-
 
         const loaderFn =
           handler.type.startsWith(
@@ -1742,7 +1598,6 @@ class TitanBot extends Client {
                 handler.type.split(':')[1]
               ]
             : module.default;
-
 
         if (
           typeof loaderFn !==
@@ -1755,16 +1610,13 @@ class TitanBot extends Client {
 
         }
 
-
         await loaderFn(
           this
         );
 
-
         startupLog(
           `Loaded ${handler.path}`
         );
-
 
       } catch (error) {
 
@@ -1777,7 +1629,6 @@ class TitanBot extends Client {
             error
           );
 
-
           throw error;
 
         }
@@ -1788,8 +1639,7 @@ class TitanBot extends Client {
 
   }
 
-
-   // ==========================================================
+  // ==========================================================
   // REGISTER COMMANDS
   // ==========================================================
 
@@ -1802,11 +1652,9 @@ class TitanBot extends Client {
         this.guilds.cache.first()?.id ||
         null;
 
-
       startupLog(
         `Command registration target: ${guildId || 'GLOBAL'}`
       );
-
 
       if (!guildId) {
 
@@ -1815,7 +1663,6 @@ class TitanBot extends Client {
         );
 
       }
-
 
       await registerSlashCommands(
         this,
@@ -1839,18 +1686,6 @@ class TitanBot extends Client {
 
   }
 
-    } catch (error) {
-
-      logger.error(
-        'Error registering commands:',
-        error
-      );
-
-    }
-
-  }
-
-
   // ==========================================================
   // SHUTDOWN
   // ==========================================================
@@ -1862,7 +1697,6 @@ class TitanBot extends Client {
     shutdownLog(
       `Bot is shutting down (${reason})...`
     );
-
 
     try {
 
@@ -1877,7 +1711,6 @@ class TitanBot extends Client {
             task.stop()
         );
 
-
       // ------------------------------------------------------
       // MUSIC
       // ------------------------------------------------------
@@ -1885,7 +1718,6 @@ class TitanBot extends Client {
       await shutdownMusic(
         this
       );
-
 
       // ------------------------------------------------------
       // WEB SERVER
@@ -1903,7 +1735,6 @@ class TitanBot extends Client {
         );
 
       }
-
 
       // ------------------------------------------------------
       // LEVELING DATA
@@ -1925,7 +1756,6 @@ class TitanBot extends Client {
         );
 
       }
-
 
       // ------------------------------------------------------
       // DATABASE
@@ -1957,7 +1787,6 @@ class TitanBot extends Client {
 
       }
 
-
       // ------------------------------------------------------
       // DISCORD
       // ------------------------------------------------------
@@ -1970,11 +1799,9 @@ class TitanBot extends Client {
 
       }
 
-
       shutdownLog(
         'Bot stopped successfully.'
       );
-
 
       process.exit(0);
 
@@ -1985,7 +1812,6 @@ class TitanBot extends Client {
         error
       );
 
-
       process.exit(1);
 
     }
@@ -1993,7 +1819,6 @@ class TitanBot extends Client {
   }
 
 }
-
 
 // ============================================================
 // BOT STARTUP
@@ -2003,7 +1828,6 @@ try {
 
   const bot =
     new TitanBot();
-
 
   // ----------------------------------------------------------
   // SHUTDOWN HANDLERS
@@ -2017,7 +1841,6 @@ try {
       )
   );
 
-
   process.on(
     'SIGINT',
     () =>
@@ -2025,7 +1848,6 @@ try {
         'SIGINT'
       )
   );
-
 
   // ----------------------------------------------------------
   // UNCAUGHT EXCEPTION
@@ -2043,14 +1865,12 @@ try {
         }
       );
 
-
       bot.shutdown(
         'UNCAUGHT_EXCEPTION'
       );
 
     }
   );
-
 
   // ----------------------------------------------------------
   // UNHANDLED REJECTION
@@ -2062,7 +1882,6 @@ try {
 
       const code =
         reason?.code;
-
 
       if (
         code === 10062 ||
@@ -2080,7 +1899,6 @@ try {
 
       }
 
-
       if (
         reason?.message?.includes(
           'Queue is empty'
@@ -2090,7 +1908,6 @@ try {
         return;
 
       }
-
 
       handleTaskError(
         'unhandled_rejection',
@@ -2108,7 +1925,6 @@ try {
     }
   );
 
-
   // ----------------------------------------------------------
   // START
   // ----------------------------------------------------------
@@ -2123,14 +1939,12 @@ try {
           error
         );
 
-
         bot.shutdown(
           'STARTUP_ERROR'
         );
 
       }
     );
-
 
 } catch (error) {
 
@@ -2139,10 +1953,8 @@ try {
     error
   );
 
-
   process.exit(1);
 
 }
-
 
 export default TitanBot;
