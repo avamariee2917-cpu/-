@@ -97,9 +97,8 @@ export default {
 
   async execute(interaction) {
 
-    await interaction.deferReply({
-      ephemeral: true,
-    });
+    // PUBLIC RESPONSE
+    await interaction.deferReply();
 
     try {
 
@@ -276,14 +275,12 @@ export default {
         const roleId =
           LEVEL_ROLES[roleLevel];
 
-        // Keep roles the member qualifies for.
         if (
           qualifyingRoleIds.has(roleId)
         ) {
           continue;
         }
 
-        // Member doesn't have this role.
         if (
           !member.roles.cache.has(roleId)
         ) {
@@ -297,7 +294,6 @@ export default {
           continue;
         }
 
-        // Bot cannot manage this role.
         if (
           role.position >=
           botMember.roles.highest.position
@@ -344,14 +340,12 @@ export default {
         const roleId =
           LEVEL_ROLES[roleLevel];
 
-        // Member does not qualify.
         if (
           !qualifyingRoleIds.has(roleId)
         ) {
           continue;
         }
 
-        // Member already has it.
         if (
           member.roles.cache.has(roleId)
         ) {
@@ -370,10 +364,6 @@ export default {
           continue;
 
         }
-
-        // ====================================================
-        // ROLE HIERARCHY
-        // ====================================================
 
         if (
           role.position >=
@@ -460,7 +450,7 @@ export default {
       }
 
       // ======================================================
-      // RESPONSE
+      // PUBLIC RESPONSE
       // ======================================================
 
       await interaction.editReply(
