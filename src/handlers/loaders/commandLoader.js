@@ -660,27 +660,29 @@ async function registerGuildCommands(
             commands
         );
 
-   logger.info(
-    `Clearing existing guild commands for ${guildId}...`
-);
+    // Clear old global commands so commands only exist in this guild.
+    logger.info(
+        'Clearing existing global commands...'
+    );
 
-await client.rest.put(
-    `/applications/${clientId}/guilds/${guildId}/commands`,
-    {
-        body: [],
-    }
-);
+    await client.rest.put(
+        `/applications/${clientId}/commands`,
+        {
+            body: [],
+        }
+    );
 
-logger.info(
-    `Registering ${commandsToRegister.length} commands to guild ${guildId}...`
-);
+    // Replace the guild command list with the current command list.
+    logger.info(
+        `Registering ${commandsToRegister.length} commands to guild ${guildId}...`
+    );
 
-await client.rest.put(
-    `/applications/${clientId}/guilds/${guildId}/commands`,
-    {
-        body: commandsToRegister,
-    }
-);
+    await client.rest.put(
+        `/applications/${clientId}/guilds/${guildId}/commands`,
+        {
+            body: commandsToRegister,
+        }
+    );
 
     logger.info(
         `Successfully registered ${commandsToRegister.length} commands to guild ${guildId}`
@@ -734,10 +736,6 @@ export async function registerCommands(
             );
         }
 
-        // ----------------------------------------------------
-        // Find a guild automatically when none is provided.
-        // ----------------------------------------------------
-
         const targetGuildId =
             guildId ||
             client.guilds?.cache?.first()?.id ||
@@ -756,10 +754,6 @@ export async function registerCommands(
 
             return;
         }
-
-        // ----------------------------------------------------
-        // No guild available: fall back to global registration.
-        // ----------------------------------------------------
 
         logger.warn(
             'No guild ID available. Falling back to global command registration.'
