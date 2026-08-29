@@ -660,16 +660,27 @@ async function registerGuildCommands(
             commands
         );
 
-    logger.info(
-        `Registering ${commandsToRegister.length} commands to guild ${guildId}...`
-    );
+   logger.info(
+    `Clearing existing guild commands for ${guildId}...`
+);
 
-    await client.rest.put(
-        `/applications/${clientId}/guilds/${guildId}/commands`,
-        {
-            body: commandsToRegister,
-        }
-    );
+await client.rest.put(
+    `/applications/${clientId}/guilds/${guildId}/commands`,
+    {
+        body: [],
+    }
+);
+
+logger.info(
+    `Registering ${commandsToRegister.length} commands to guild ${guildId}...`
+);
+
+await client.rest.put(
+    `/applications/${clientId}/guilds/${guildId}/commands`,
+    {
+        body: commandsToRegister,
+    }
+);
 
     logger.info(
         `Successfully registered ${commandsToRegister.length} commands to guild ${guildId}`
