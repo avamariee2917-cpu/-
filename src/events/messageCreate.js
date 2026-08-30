@@ -1,9 +1,14 @@
-import { Events } from "discord.js";
+import {
+    Events,
+    EmbedBuilder
+} from "discord.js";
+
 import fs from "fs";
 import path from "path";
 
 import { logger } from "../utils/logger.js";
 import { handleDivAutoresponder } from "../services/divAutoresponder.js";
+
 
 // ============================================================
 // NAME REACTIONS
@@ -14,6 +19,18 @@ const nameReactionFile = path.join(
     "data",
     "nameReactions.json"
 );
+
+
+// ============================================================
+// AFK
+// ============================================================
+
+const afkFile = path.join(
+    process.cwd(),
+    "data",
+    "afk.json"
+);
+
 
 // ============================================================
 // UPLOADER CHANNELS
@@ -26,6 +43,7 @@ const UPLOADER_CHANNEL_IDS = new Set([
     "1531889304245243904"
 ]);
 
+
 // ============================================================
 // UPLOADER MESSAGE
 // ============================================================
@@ -35,6 +53,7 @@ const UPLOADER_MESSAGE =
 > <:bling:1532144020921389176> ﹒  **become a uploader**
 > <:bling:1532144020921389176> ﹒ **open a ticket here *:* <#1532195996052754523>**
 ·:*¨༺ ♱✮♱ ༻¨*:·`;
+
 
 // ============================================================
 // LOAD NAME REACTIONS
@@ -78,6 +97,7 @@ function loadNameReactions() {
     }
 }
 
+
 // ============================================================
 // GET EMOJI ID
 // ============================================================
@@ -88,11 +108,13 @@ function getEmojiId(emoji) {
         return null;
     }
 
-    const text = String(emoji).trim();
+    const text =
+        String(emoji).trim();
 
-    const match = text.match(
-        /<a?:\w+:(\d+)>/
-    );
+    const match =
+        text.match(
+            /<a?:\w+:(\d+)>/
+        );
 
     if (match) {
         return match[1];
@@ -105,6 +127,7 @@ function getEmojiId(emoji) {
     return null;
 }
 
+
 // ============================================================
 // NAME REACTION HANDLER
 // ============================================================
@@ -113,11 +136,13 @@ async function handleNameReact(message) {
 
     try {
 
-        const reactions = loadNameReactions();
+        const reactions =
+            loadNameReactions();
 
         for (const name in reactions) {
 
-            const reaction = reactions[name];
+            const reaction =
+                reactions[name];
 
             if (
                 !reaction ||
@@ -140,9 +165,12 @@ async function handleNameReact(message) {
                 );
 
             const nameWasUsed =
-                nameRegex.test(message.content);
+                nameRegex.test(
+                    message.content
+                );
 
-            let memberWasMentioned = false;
+            let memberWasMentioned =
+                false;
 
             if (reaction.createdBy) {
 
@@ -159,7 +187,10 @@ async function handleNameReact(message) {
                 continue;
             }
 
-            for (const emoji of reaction.emojis) {
+            for (
+                const emoji
+                of reaction.emojis
+            ) {
 
                 const emojiId =
                     getEmojiId(emoji);
@@ -197,6 +228,297 @@ async function handleNameReact(message) {
     }
 }
 
+
+// ============================================================
+// LOAD AFK DATA
+// ============================================================
+
+function loadAfkData() {
+
+    try {
+
+        if (!fs.existsSync(afkFile)) {
+
+            fs.mkdirSync(
+                path.dirname(afkFile),
+                {
+                    recursive: true
+                }
+            );
+
+            fs.writeFileSync(
+                afkFile,
+                "{}"
+            );
+        }
+
+        return JSON.parse(
+            fs.readFileSync(
+                afkFile,
+                "utf8"
+            )
+        );
+
+    } catch (error) {
+
+        logger.error(
+            "Failed loading AFK data:",
+            error
+        );
+
+        return {};
+
+    }
+}
+
+
+// ============================================================
+// SAVE AFK DATA
+// ============================================================
+
+function saveAfkData(data) {
+
+    try {
+
+        fs.writeFileSync(
+            afkFile,
+            JSON.stringify(
+                data,
+                null,
+                4
+            )
+        );
+
+    } catch (error) {
+
+        logger.error(
+            "Failed saving AFK data:",
+            error
+        );
+
+    }
+}
+
+
+// ============================================================
+// FORMAT AFK TIME
+// ============================================================
+
+function formatAfkTime(milliseconds) {
+
+    let seconds =
+        Math.floor(
+            milliseconds / 1000
+        );
+
+    const days =
+        Math.floor(
+            seconds / 86400
+        );
+
+    seconds %= 86400;
+
+    const hours =
+        Math.floor(
+            seconds / 3600
+        );
+
+    seconds %= 3600;
+
+    const minutes =
+        Math.floor(
+            seconds / 60
+        );
+
+    seconds %= 60;
+
+
+    const parts = [];
+
+
+    if (days > 0) {
+        parts.push(
+            `${days} ${days === 1 ? "day" : "days"}`
+        );
+    }
+
+    if (hours > 0) {
+        parts.push(
+            `${hours} ${hours === 1 ? "hour" : "hours"}`
+        );
+    }
+
+    if (minutes > 0) {
+        parts.push(
+            `${minutes} ${minutes === 1 ? "minute" : "minutes"}`
+        );
+    }
+
+    if (
+        seconds > 0 &&
+        parts.length === 0
+    ) {
+        parts.push(
+            `${seconds} ${seconds === 1 ? "second" : "seconds"}`
+        );
+    }
+
+
+    if (parts.length === 0) {
+        return "less than a minute";
+    }
+
+
+    return parts.join(", ");
+}
+
+
+// ============================================================
+// AFK RETURN HANDLER
+// ============================================================
+
+async function handleAfkReturn(message) {
+
+    try {
+
+        const data =
+            loadAfkData();
+
+        const afk =
+            data[message.author.id];
+
+
+        if (!afk) {
+            return;
+        }
+
+
+        const duration =
+            Date.now() - afk.timestamp;
+
+
+        delete data[message.author.id];
+
+        saveAfkData(data);
+
+
+        const embed =
+            new EmbedBuilder()
+
+                .setDescription(
+                    `.⋆♱ Welcome back, <@${message.author.id}>.`
+                )
+
+                .addFields(
+                    {
+                        name: "AFK Duration",
+                        value: formatAfkTime(duration),
+                        inline: true
+                    },
+                    {
+                        name: "Reason",
+                        value: afk.reason,
+                        inline: true
+                    }
+                )
+
+                .setColor(0x808080);
+
+
+        await message.channel.send({
+            embeds: [embed]
+        });
+
+
+    } catch (error) {
+
+        logger.error(
+            "AFK return error:",
+            error
+        );
+
+    }
+}
+
+
+// ============================================================
+// AFK MENTION HANDLER
+// ============================================================
+
+async function handleAfkMention(message) {
+
+    try {
+
+        const data =
+            loadAfkData();
+
+
+        if (
+            !message.mentions ||
+            message.mentions.users.size === 0
+        ) {
+            return;
+        }
+
+
+        for (
+            const mentionedUser
+            of message.mentions.users.values()
+        ) {
+
+            const afk =
+                data[mentionedUser.id];
+
+
+            if (!afk) {
+                continue;
+            }
+
+
+            const duration =
+                Date.now() - afk.timestamp;
+
+
+            const embed =
+                new EmbedBuilder()
+
+                    .setDescription(
+                        `.⋆♱ <@${mentionedUser.id}> is currently AFK.`
+                    )
+
+                    .addFields(
+                        {
+                            name: "Reason",
+                            value: afk.reason,
+                            inline: true
+                        },
+                        {
+                            name: "AFK For",
+                            value: formatAfkTime(duration),
+                            inline: true
+                        }
+                    )
+
+                    .setColor(0x808080);
+
+
+            await message.channel.send({
+                embeds: [embed]
+            });
+
+        }
+
+    } catch (error) {
+
+        logger.error(
+            "AFK mention error:",
+            error
+        );
+
+    }
+}
+
+
 // ============================================================
 // UPLOADER AUTO MESSAGE
 // ============================================================
@@ -204,9 +526,6 @@ async function handleNameReact(message) {
 async function handleUploaderMessage(message) {
 
     try {
-
-        // Make absolutely sure this is one
-        // of the uploader channels.
 
         if (
             !UPLOADER_CHANNEL_IDS.has(
@@ -220,18 +539,12 @@ async function handleUploaderMessage(message) {
             `Uploader channel detected: ${message.channel.id}`
         );
 
-        // ----------------------------------------------------
-        // FETCH RECENT MESSAGES
-        // ----------------------------------------------------
 
         const messages =
             await message.channel.messages.fetch({
                 limit: 100
             });
 
-        // ----------------------------------------------------
-        // FIND ALL OLD UPLOADER MESSAGES
-        // ----------------------------------------------------
 
         const oldUploaderMessages =
             messages.filter(
@@ -242,9 +555,6 @@ async function handleUploaderMessage(message) {
                         UPLOADER_MESSAGE
             );
 
-        // ----------------------------------------------------
-        // DELETE OLD UPLOADER MESSAGES
-        // ----------------------------------------------------
 
         for (
             const oldMessage
@@ -269,18 +579,17 @@ async function handleUploaderMessage(message) {
             }
         }
 
-        // ----------------------------------------------------
-        // SEND FRESH UPLOADER MESSAGE
-        // ----------------------------------------------------
 
         const newMessage =
             await message.channel.send({
                 content: UPLOADER_MESSAGE
             });
 
+
         logger.info(
             `NEW UPLOADER MESSAGE SENT: ${newMessage.id}`
         );
+
 
     } catch (error) {
 
@@ -291,6 +600,7 @@ async function handleUploaderMessage(message) {
 
     }
 }
+
 
 // ============================================================
 // MESSAGE CREATE
@@ -312,6 +622,7 @@ export default {
                 return;
             }
 
+
             // ------------------------------------------------
             // IGNORE DMs
             // ------------------------------------------------
@@ -320,9 +631,29 @@ export default {
                 return;
             }
 
+
             logger.debug(
                 `Message received from ${message.author.tag} in channel ${message.channel.id}: ${message.content}`
             );
+
+
+            // =================================================
+            // AFK RETURN
+            // =================================================
+
+            await handleAfkReturn(
+                message
+            );
+
+
+            // =================================================
+            // AFK MENTIONS
+            // =================================================
+
+            await handleAfkMention(
+                message
+            );
+
 
             // =================================================
             // UPLOADER AUTO MESSAGE
@@ -332,6 +663,7 @@ export default {
                 message
             );
 
+
             // =================================================
             // .DIV AUTORESPONDER
             // =================================================
@@ -340,6 +672,7 @@ export default {
                 message
             );
 
+
             // =================================================
             // NAME REACTIONS
             // =================================================
@@ -347,6 +680,7 @@ export default {
             await handleNameReact(
                 message
             );
+
 
         } catch (error) {
 
