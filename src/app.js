@@ -532,11 +532,6 @@ class TitanBot extends Client {
         this.config.bot.token
       );
 
-      this.user.setPresence({
-        activities: [],
-        status: 'online'
-      });
-
       startupLog(
         'Discord login successful'
       );
@@ -979,7 +974,7 @@ class TitanBot extends Client {
           } catch (error) {
 
             logger.warn(
-              `Could not add ${role.name} from ${member.user.tag}:`,
+              `Could not add ${role.name} to ${member.user.tag}:`,
               error.message
             );
 
@@ -1428,13 +1423,13 @@ class TitanBot extends Client {
   setupCronJobs() {
 
     cron.schedule(
-      '* * * * *',
-      runSafeTask(
-        'birthday_check',
-        () =>
-          checkBirthdays(this)
-      )
-    );
+  '* * * * *',
+  runSafeTask(
+    'birthday_check',
+    () =>
+      checkBirthdays(this)
+  )
+);
 
     cron.schedule(
       '* * * * *',
